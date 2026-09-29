@@ -1,0 +1,5 @@
+scripts/.engine-cache-*.json
+node_modules
+dist
+public/engine/
+public/puzzles/puzzles.json

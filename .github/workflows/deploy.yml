@@ -1,0 +1,60 @@
+name: Build & deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Offline puzzle pack: ~3,000 puzzles sampled from the Lichess puzzle database (CC0).
+      # Fetched only at build time; the app itself never contacts Lichess.
+      - name: Restore puzzle pack cache
+        id: puzzles-cache
+        uses: actions/cache@v4
+        with:
+          path: public/puzzles/puzzles.json
+          key: puzzles-v1-${{ hashFiles('scripts/build-puzzles.mjs') }}
+      - name: Build puzzle pack
+        if: steps.puzzles-cache.outputs.cache-hit != 'true'
+        continue-on-error: true # the app falls back to lesson exercises if this fails
+        run: |
+          curl -fsSL --retry 3 https://database.lichess.org/lichess_db_puzzle.csv.zst -o puzzles.csv.zst
+          zstd -dc puzzles.csv.zst | node scripts/build-puzzles.mjs
+          rm puzzles.csv.zst
+
+      - name: Validate lessons (legality)
+        run: npm run validate:lessons -- --no-engine
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
