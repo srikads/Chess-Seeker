@@ -7,7 +7,7 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 // Relative base so the app works from https://<user>.github.io/<repo>/ and any other sub-path.
 export default defineConfig({
   base: './',
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  define: { __APP_VERSION__: JSON.stringify(pkg.version), __BUILD_ID__: JSON.stringify(String(Date.now())) },
   build: { target: 'es2022', chunkSizeWarningLimit: 800 },
   plugins: [
     VitePWA({
