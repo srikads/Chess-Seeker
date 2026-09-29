@@ -201,6 +201,6 @@ export function explainMistake(fenBefore: string, played: Move, replyPv: string[
     }
   }
   const hang = hangingPieces(new Chess(fenAfter), played.color);
-  if (hang.length && !parts.some((p) => p.includes('wins your'))) parts.push(`your ${label(new Chess(fenAfter), hang[0])} is left unprotected`);
+  if (hang.length && !(replyMate !== null && replyMate > 0) && !parts.some((p) => p.includes('wins your'))) parts.push(`your ${label(new Chess(fenAfter), hang[0])} is left unprotected`);
   return parts.length ? cap(parts.join('; ')) + '.' : 'It gives away a big part of your advantage.';
 }

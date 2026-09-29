@@ -1,6 +1,7 @@
 // All user data lives in IndexedDB on this device. Nothing is ever sent anywhere.
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Category } from '../lessons/types';
+import type { MoveClass } from '../chess/classify';
 
 export type StudyBucket = 'openings' | 'tactics' | 'endgames' | 'play';
 
@@ -21,7 +22,7 @@ export interface PuzzleAttempt {
   rating: number; // puzzle rating
 }
 
-export type MoveClass = 'best' | 'excellent' | 'good' | 'inaccuracy' | 'mistake' | 'blunder' | 'book';
+export type { MoveClass };
 
 export interface MoveAnalysis {
   /** eval (White POV, centipawns, mate folded to ±10000) of the position AFTER the move */
@@ -31,6 +32,9 @@ export interface MoveAnalysis {
   bestPv: string[]; // SAN
   cls: MoveClass;
   winLoss: number; // win% lost by the mover
+  /** engine's second choice (SAN) and how much worse it was (win%) — explains "Great" moves */
+  second?: string;
+  secondLoss?: number;
 }
 
 export interface GameRecord {
@@ -48,6 +52,8 @@ export interface GameRecord {
   /** ms each move took */
   times: number[];
   analysis?: MoveAnalysis[];
+  /** bumped when the classifier changes, so old reviews are recomputed */
+  analysisVersion?: number;
   accuracy?: { white: number; black: number };
   pure: boolean;
   hintsUsed: number;

@@ -1,35 +1,30 @@
 import { Chess } from 'chess.js';
-import { h, rich, toast } from '../ui/dom';
+import { h, rich, toast, setChildren } from '../ui/dom';
 import { BoardView, arrow } from '../ui/board';
 import { playSound } from '../ui/sound';
 import { engine, scoreNum, winPct, fmtEval } from '../engine/engine';
-import { explainBest, explainMistake } from '../chess/explain';
-import { pvToSan, formatLine, uciToSan } from '../chess/util';
+import { explainBest, explainMistake, describeMove } from '../chess/explain';
+import { classifyMove, isSacrifice, moveAccuracy } from '../chess/classify';
+import { pvToSan, formatLine, uciToSan, NAME } from '../chess/util';
 import { getGame, saveGame, type GameRecord, type MoveAnalysis, type MoveClass } from '../store/db';
 import { trackStudy } from '../store/tracker';
 import type { View } from '../router';
 
 const CLS_LABEL: Record<MoveClass, string> = {
+  brilliant: '!! Brilliant',
+  great: '! Great',
   best: '★ Best',
   excellent: '👍 Excellent',
   good: '✓ Good',
   book: '📖 Book',
   inaccuracy: '?! Inaccuracy',
   mistake: '? Mistake',
+  miss: '✗ Miss',
   blunder: '?? Blunder',
 };
 
-function classify(loss: number, isBest: boolean): MoveClass {
-  if (isBest || loss <= 1) return 'best';
-  if (loss < 3) return 'excellent';
-  if (loss < 7) return 'good';
-  if (loss < 12) return 'inaccuracy';
-  if (loss < 22) return 'mistake';
-  return 'blunder';
-}
-
-/** Lichess-style accuracy from win% loss. */
-const moveAccuracy = (loss: number) => Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * loss) - 3.1669));
+/** Bump when classification changes so older reviews are recomputed. */
+const ANALYSIS_VERSION = 2;
 
 /** Analyse all positions of a game; results are stored on the record. */
 async function analyseGame(rec: GameRecord, onProgress: (done: number, total: number) => void): Promise<void> {
@@ -39,20 +34,29 @@ async function analyseGame(rec: GameRecord, onProgress: (done: number, total: nu
     g.move(s);
     fens.push(g.fen());
   }
-  // eval of every position, white POV
-  const evals: { cp: number; mate: number | null; best: string; pv: string[] }[] = [];
+  // Eval of every position: `cp` is White POV; `top`/`second` are side-to-move POV scores of the two best moves.
+  type Ev = { cp: number; mate: number | null; best: string; pv: string[]; top: number; second: { uci: string; score: number } | null };
+  const evals: Ev[] = [];
   for (let i = 0; i < fens.length; i++) {
     const pos = new Chess(fens[i]);
+    const sign = pos.turn() === 'w' ? 1 : -1;
     if (pos.isCheckmate()) {
-      evals.push({ cp: pos.turn() === 'w' ? -10000 : 10000, mate: 0, best: '', pv: [] });
+      evals.push({ cp: -sign * 10000, mate: 0, best: '', pv: [], top: -10000, second: null });
     } else if (pos.isGameOver()) {
-      evals.push({ cp: 0, mate: null, best: '', pv: [] });
+      evals.push({ cp: 0, mate: null, best: '', pv: [], top: 0, second: null });
     } else {
-      const r = await engine.analyse(fens[i], { depth: 13 });
+      const r = await engine.analyse(fens[i], { depth: 13, multipv: 2 });
       if (r.bestmove === '(cancelled)') throw new Error('cancelled');
       const l = r.lines[0] ?? { cp: 0, mate: null, pv: [] };
-      const sign = pos.turn() === 'w' ? 1 : -1;
-      evals.push({ cp: sign * scoreNum(l), mate: l.mate === null ? null : sign * l.mate, best: r.bestmove, pv: l.pv });
+      const l2 = r.lines[1];
+      evals.push({
+        cp: sign * scoreNum(l),
+        mate: l.mate === null ? null : sign * l.mate,
+        best: r.bestmove,
+        pv: l.pv,
+        top: scoreNum(l),
+        second: l2 ? { uci: l2.pv[0], score: scoreNum(l2) } : null,
+      });
     }
     onProgress(i + 1, fens.length);
   }
@@ -61,16 +65,37 @@ async function analyseGame(rec: GameRecord, onProgress: (done: number, total: nu
   for (let i = 0; i < rec.sans.length; i++) {
     const white = new Chess(fens[i]).turn() === 'w';
     const pov = white ? 1 : -1;
-    const wb = winPct(pov * evals[i].cp);
+    const wb = winPct(evals[i].top);
     const wa = winPct(pov * evals[i + 1].cp);
     const loss = Math.max(0, wb - wa);
+    const played = new Chess(fens[i]).move(rec.sans[i]);
     const bestSan = evals[i].best ? uciToSan(fens[i], evals[i].best) : '';
-    const cls = i < 6 && loss < 4 ? 'book' : classify(loss, bestSan === rec.sans[i]);
-    analysis.push({ cp: evals[i + 1].cp, mate: evals[i + 1].mate, best: bestSan, bestPv: pvToSan(fens[i], evals[i].pv, 8), cls, winLoss: Math.round(loss * 10) / 10 });
+    const sec = evals[i].second;
+    const winSecond = sec ? winPct(sec.score) : null;
+    const cls = classifyMove({
+      ply: i,
+      winBefore: wb,
+      winAfter: wa,
+      winSecond,
+      isBest: bestSan === rec.sans[i],
+      isSacrifice: isSacrifice(fens[i], played),
+      prevCls: analysis[i - 1]?.cls,
+    });
+    analysis.push({
+      cp: evals[i + 1].cp,
+      mate: evals[i + 1].mate,
+      best: bestSan,
+      bestPv: pvToSan(fens[i], evals[i].pv, 8),
+      cls,
+      winLoss: Math.round(loss * 10) / 10,
+      second: sec ? uciToSan(fens[i], sec.uci) : undefined,
+      secondLoss: winSecond !== null ? Math.round(wb - winSecond) : undefined,
+    });
     acc[white ? 'white' : 'black'].push(moveAccuracy(loss));
   }
   const avg = (a: number[]) => (a.length ? Math.round((10 * a.reduce((x, y) => x + y, 0)) / a.length) / 10 : 0);
   rec.analysis = analysis;
+  rec.analysisVersion = ANALYSIS_VERSION;
   rec.accuracy = { white: avg(acc.white), black: avg(acc.black) };
   await saveGame(rec);
 }
@@ -140,28 +165,51 @@ export async function reviewView([idStr]: string[]): Promise<View> {
       return;
     }
     const m = a[i];
+    const played = new Chess(fens[i]).move(san);
+    const playedUci = played.from + played.to + (played.promotion ?? '');
+    const bestUci = m.best ? sanLineToUci(fens[i], [m.best])[0] : '';
+    const reasons = describeMove(fens[i], played).filter((r) => r !== 'improves the position');
+    const why = reasons.length ? reasons.join('; ') : 'keeps the position in good shape';
+    const bestWhy = () => explainBest(fens[i], bestUci, sanLineToUci(fens[i], m.bestPv)).replace(/^\*\*.+?\*\* /, '');
+    const retryRow = () =>
+      h('div.row.wrap', h('button.btn', { onclick: () => showBest(i) }, 'Show best move'), h('button.btn.primary', { onclick: () => startRetry(i) }, '↻ Retry this moment'));
     const parts: (HTMLElement | null)[] = [h('div.row', h(`span.cls.${m.cls}`, CLS_LABEL[m.cls]), h('strong', `${moveNo} ${san}`), h('span.muted.small', `by ${who}`))];
-    if (m.cls === 'inaccuracy' || m.cls === 'mistake' || m.cls === 'blunder') {
-      const played = new Chess(fens[i]).move(san);
-      // The opponent's best reply is the engine's best line from the next position.
-      const replyPv = sanLineToUci(fens[ply], a[i + 1]?.bestPv ?? []);
-      const pov = side === 'white' ? 1 : -1;
-      const oppMate = m.mate !== null && m.mate * pov < 0 ? Math.abs(m.mate) : null;
-      parts.push(rich(`**Why it's a ${m.cls}:** ${explainMistake(fens[i], played, replyPv, oppMate)}`));
-      if (m.best) {
-        const bestUci = sanLineToUci(fens[i], [m.best])[0];
-        parts.push(rich(`**Better was ${m.best}.** ${explainBest(fens[i], bestUci, sanLineToUci(fens[i], m.bestPv)).replace(/^\*\*.+?\*\* /, '')}`));
-        parts.push(
-          h(
-            'div.row.wrap',
-            h('button.btn', { onclick: () => showBest(i) }, 'Show best move'),
-            h('button.btn.primary', { onclick: () => startRetry(i) }, '↻ Retry this moment'),
-          ),
-        );
+    switch (m.cls) {
+      case 'brilliant':
+        parts.push(rich(`**Brilliant!** ${san} sacrifices the ${NAME[played.piece]} on ${played.to} — it can be taken, but Stockfish confirms the sacrifice works. The move ${why}.`));
+        if (m.bestPv.length > 1) parts.push(rich(`The idea: ${formatLine(fens[i], m.bestPv.slice(0, 6))}.`));
+        board.arrows([arrow(playedUci, 'blue')]);
+        break;
+      case 'great':
+        parts.push(rich(`**Great move — the only good one here.** ${san} ${why}.${m.second ? ` The next-best option, ${m.second}, would have cost about ${m.secondLoss}% winning chances.` : ''}`));
+        board.arrows([arrow(playedUci, 'blue')]);
+        break;
+      case 'best':
+      case 'excellent':
+      case 'good':
+      case 'book':
+        parts.push(rich(`**Why it works:** ${san} ${why}.`));
+        if (m.cls !== 'best' && m.cls !== 'book' && m.best && m.best !== san) {
+          parts.push(rich(`Stockfish slightly preferred **${m.best}** — it ${bestWhy()}`));
+          board.arrows([arrow(playedUci, 'green'), arrow(bestUci, 'blue')]);
+        } else board.arrows([arrow(playedUci, 'green')]);
+        break;
+      case 'miss': {
+        const prevSan = rec!.sans[i - 1];
+        parts.push(rich(`**Missed chance.** Your opponent's ${prevSan} was a mistake, but ${san} lets them off the hook.`));
+        if (m.best) parts.push(rich(`**${m.best} would have punished it** — it ${bestWhy()}`), retryRow());
+        board.arrows([arrow(playedUci, 'red'), ...(bestUci ? [arrow(bestUci, 'green')] : [])]);
+        break;
       }
-      board.arrows([arrow(sanLineToUci(fens[i], [san])[0], 'red'), ...(m.best ? [arrow(sanLineToUci(fens[i], [m.best])[0], 'green')] : [])]);
-    } else if (m.best && m.best !== san && m.cls !== 'book') {
-      parts.push(h('p.small.muted', `Engine's top choice was ${m.best}.`));
+      default: {
+        // inaccuracy / mistake / blunder — the opponent's best reply is the engine's line from the next position.
+        const replyPv = sanLineToUci(fens[ply], a[i + 1]?.bestPv ?? []);
+        const pov = side === 'white' ? 1 : -1;
+        const oppMate = m.mate !== null && m.mate * pov < 0 ? Math.abs(m.mate) : null;
+        parts.push(rich(`**Why it's ${m.cls === 'inaccuracy' ? 'an' : 'a'} ${m.cls}:** ${explainMistake(fens[i], played, replyPv, oppMate)}`));
+        if (m.best) parts.push(rich(`**Better was ${m.best}** — it ${bestWhy()}`), retryRow());
+        board.arrows([arrow(playedUci, 'red'), ...(bestUci ? [arrow(bestUci, 'green')] : [])]);
+      }
     }
     parts.push(h('p.small.muted', `Evaluation after the move: ${fmtEval(m.cp, m.mate)}`));
     detail.replaceChildren(...parts.filter(Boolean) as HTMLElement[]);
@@ -224,15 +272,20 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     const row = (c: MoveClass) => h('tr', h('td', h(`span.cls.${c}`, CLS_LABEL[c])), h('td', String(count('white', c))), h('td', String(count('black', c))));
     summary.replaceChildren(
       h('div.acc', h('div', h('small', rec!.white), h('strong', `${rec!.accuracy?.white ?? '–'}%`)), h('div', h('small', rec!.black), h('strong', `${rec!.accuracy?.black ?? '–'}%`))),
-      h('table.cls-table', h('tr', h('th', ''), h('th', '⚪'), h('th', '⚫')), ...(['best', 'excellent', 'good', 'inaccuracy', 'mistake', 'blunder'] as MoveClass[]).map(row)),
+      h('table.cls-table', h('tr', h('th', ''), h('th', '⚪'), h('th', '⚫')), ...(['brilliant', 'great', 'best', 'excellent', 'good', 'book', 'inaccuracy', 'mistake', 'miss', 'blunder'] as MoveClass[]).map(row)),
     );
-    // key moments: user's mistakes & blunders
-    const key = a.map((m, i) => ({ m, i })).filter(({ m, i }) => (m.cls === 'mistake' || m.cls === 'blunder') && (rec!.userColor === userSide(i) || rec!.userColor === 'both'));
-    moments.replaceChildren(
+    // key moments: the user's errors to learn from, and their best moments
+    const mine = a.map((m, i) => ({ m, i })).filter(({ i }) => rec!.userColor === userSide(i) || rec!.userColor === 'both');
+    const chip = ({ m, i }: { m: MoveAnalysis; i: number }) =>
+      h(`button.chip.c-${m.cls}`, { onclick: () => show(i + 1) }, `${Math.floor(i / 2) + 1}${userSide(i) === 'black' ? '…' : '.'} ${rec!.sans[i]} ${CLS_LABEL[m.cls].split(' ')[0]}`);
+    const errs = mine.filter(({ m }) => m.cls === 'mistake' || m.cls === 'blunder' || m.cls === 'miss');
+    const highs = mine.filter(({ m }) => m.cls === 'brilliant' || m.cls === 'great');
+    setChildren(
+      moments,
       h('h3', 'Key moments to learn from'),
-      key.length
-        ? h('div.chips', key.map(({ m, i }) => h(`button.chip.c-${m.cls}`, { onclick: () => show(i + 1) }, `${Math.floor(i / 2) + 1}${i % 2 ? '…' : '.'} ${rec!.sans[i]}`)))
-        : h('p.small.muted', 'No mistakes or blunders by you — excellent game!'),
+      errs.length ? h('div.chips', errs.map(chip)) : h('p.small.muted', 'No mistakes, misses or blunders by you — excellent game!'),
+      highs.length ? h('h3', 'Your best moves') : null,
+      highs.length ? h('div.chips', highs.map(chip)) : null,
     );
     // graph (SVG)
     const W = Math.max(1, a.length);
@@ -278,7 +331,7 @@ export async function reviewView([idStr]: string[]): Promise<View> {
   );
   renderAll();
   show(ply);
-  if (!rec.analysis) void runAnalysis();
+  if (!rec.analysis || (rec.analysisVersion ?? 1) < ANALYSIS_VERSION) void runAnalysis();
   return {
     el,
     destroy: () => {

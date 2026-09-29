@@ -268,14 +268,18 @@ cg-board square.hl-yellow { background-color: rgb(245 205 60 / 0.6); }
 .evalgraph .cursor { stroke: var(--warn); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .review-detail { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; min-height: 80px; }
 .cls { font-size: 0.78rem; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: var(--surface-2); white-space: nowrap; }
+.cls.brilliant, .c-brilliant { color: #1fc2bd; }
+.cls.great, .c-great { color: #6f9fd8; }
 .cls.best, .c-best { color: #5fb85f; }
 .cls.excellent, .c-excellent { color: #7fc27f; }
 .cls.good, .c-good { color: #9fb3a0; }
 .cls.book, .c-book { color: #c8a26b; }
 .cls.inaccuracy, .c-inaccuracy { color: #f2c14e; }
 .cls.mistake, .c-mistake { color: #e8964a; }
+.cls.miss, .c-miss { color: #ff7a8a; }
 .cls.blunder, .c-blunder { color: #e2574c; }
-.chip.c-mistake, .chip.c-blunder { border-color: currentColor; }
+.chip.c-mistake, .chip.c-blunder, .chip.c-miss, .chip.c-great, .chip.c-brilliant { border-color: currentColor; }
+.review-detail .rich { margin-top: 6px; }
 .acc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
 .acc > div { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; text-align: center; }
 .acc strong { font-size: 1.5rem; }
