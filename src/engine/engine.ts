@@ -8,6 +8,8 @@ export interface PvLine {
   /** moves to mate from side-to-move POV (null when not mate) */
   mate: number | null;
   pv: string[]; // UCI
+  /** win/draw/loss per mille from side-to-move POV (Stockfish's WDL model) */
+  wdl?: [number, number, number];
 }
 
 export interface AnalysisResult {
@@ -54,6 +56,7 @@ class StockfishEngine {
       this.worker.onerror = (e) => reject(e);
       this.waitFor((l) => l === 'uciok').then(async () => {
         this.send('setoption name Hash value 32');
+        this.send('setoption name UCI_ShowWDL value true');
         this.send('isready');
         await this.waitFor((l) => l === 'readyok');
         resolve();
@@ -140,7 +143,9 @@ class StockfishEngine {
       const kind = t[scoreIdx + 1];
       const val = Number(t[scoreIdx + 2]);
       const pv = line.slice(line.indexOf(' pv ') + 4).trim().split(' ');
-      lines.set(mpv, { multipv: mpv, depth, cp: kind === 'cp' ? val : null, mate: kind === 'mate' ? val : null, pv });
+      const wi = t.indexOf('wdl');
+      const wdl = wi >= 0 ? ([Number(t[wi + 1]), Number(t[wi + 2]), Number(t[wi + 3])] as [number, number, number]) : undefined;
+      lines.set(mpv, { multipv: mpv, depth, cp: kind === 'cp' ? val : null, mate: kind === 'mate' ? val : null, pv, wdl });
       o.onInfo?.([...lines.values()].sort((a, b) => a.multipv - b.multipv));
     };
     this.listeners.push(onLine);

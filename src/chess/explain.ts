@@ -26,7 +26,7 @@ export function hangingPieces(g: Chess, color: Color): Square[] {
 }
 
 /** Enemy pieces (worth ≥3, or undefended) attacked by the piece on `sq`. */
-function attackedTargets(g: Chess, sq: Square): Square[] {
+export function attackedTargets(g: Chess, sq: Square): Square[] {
   const piece = g.get(sq);
   if (!piece) return [];
   const targets: Square[] = [];
@@ -138,7 +138,7 @@ export function describeMove(fenBefore: string, m: Move): string[] {
   return [...new Set(reasons)];
 }
 
-function isOpenFile(g: Chess, file: string): boolean {
+export function isOpenFile(g: Chess, file: string): boolean {
   for (let r = 1; r <= 8; r++) {
     const p = g.get(`${file}${r}` as Square);
     if (p && p.type === 'p') return false;
@@ -146,7 +146,7 @@ function isOpenFile(g: Chess, file: string): boolean {
   return true;
 }
 
-function isPassed(g: Chess, sq: Square, color: Color): boolean {
+export function isPassed(g: Chess, sq: Square, color: Color): boolean {
   const f = sq.charCodeAt(0);
   const rank = Number(sq[1]);
   const dir = color === 'w' ? 1 : -1;

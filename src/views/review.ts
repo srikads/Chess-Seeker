@@ -5,6 +5,8 @@ import { playSound } from '../ui/sound';
 import { engine, scoreNum, winPct, fmtEval } from '../engine/engine';
 import { explainBest, explainMistake, describeMove } from '../chess/explain';
 import { classifyMove, isSacrifice, moveAccuracy } from '../chess/classify';
+import { motifsOf, lineMotifs, type Motif } from '../chess/motifs';
+import { lessonById } from '../lessons';
 import { pvToSan, formatLine, uciToSan, NAME } from '../chess/util';
 import { getGame, saveGame, type GameRecord, type MoveAnalysis, type MoveClass } from '../store/db';
 import { trackStudy } from '../store/tracker';
@@ -24,7 +26,18 @@ const CLS_LABEL: Record<MoveClass, string> = {
 };
 
 /** Bump when classification changes so older reviews are recomputed. */
-const ANALYSIS_VERSION = 2;
+const ANALYSIS_VERSION = 3;
+
+type WDL = [number, number, number];
+
+/** Stockfish WDL (side-to-move POV) → White win / draw / Black win. Falls back to the win% model. */
+function toWhiteWdl(w: WDL | undefined, sign: number, stmScore: number): WDL {
+  if (!w) {
+    const win = Math.round(winPct(stmScore) * 10);
+    w = [win, 0, 1000 - win];
+  }
+  return sign > 0 ? [w[0], w[1], w[2]] : [w[2], w[1], w[0]];
+}
 
 /** Analyse all positions of a game; results are stored on the record. */
 async function analyseGame(rec: GameRecord, onProgress: (done: number, total: number) => void): Promise<void> {
@@ -35,15 +48,15 @@ async function analyseGame(rec: GameRecord, onProgress: (done: number, total: nu
     fens.push(g.fen());
   }
   // Eval of every position: `cp` is White POV; `top`/`second` are side-to-move POV scores of the two best moves.
-  type Ev = { cp: number; mate: number | null; best: string; pv: string[]; top: number; second: { uci: string; score: number } | null };
+  type Ev = { cp: number; mate: number | null; best: string; pv: string[]; top: number; second: { uci: string; score: number } | null; wdl: WDL };
   const evals: Ev[] = [];
   for (let i = 0; i < fens.length; i++) {
     const pos = new Chess(fens[i]);
     const sign = pos.turn() === 'w' ? 1 : -1;
     if (pos.isCheckmate()) {
-      evals.push({ cp: -sign * 10000, mate: 0, best: '', pv: [], top: -10000, second: null });
+      evals.push({ cp: -sign * 10000, mate: 0, best: '', pv: [], top: -10000, second: null, wdl: sign > 0 ? [0, 0, 1000] : [1000, 0, 0] });
     } else if (pos.isGameOver()) {
-      evals.push({ cp: 0, mate: null, best: '', pv: [], top: 0, second: null });
+      evals.push({ cp: 0, mate: null, best: '', pv: [], top: 0, second: null, wdl: [0, 1000, 0] });
     } else {
       const r = await engine.analyse(fens[i], { depth: 13, multipv: 2 });
       if (r.bestmove === '(cancelled)') throw new Error('cancelled');
@@ -56,6 +69,7 @@ async function analyseGame(rec: GameRecord, onProgress: (done: number, total: nu
         pv: l.pv,
         top: scoreNum(l),
         second: l2 ? { uci: l2.pv[0], score: scoreNum(l2) } : null,
+        wdl: toWhiteWdl(l.wdl, sign, scoreNum(l)),
       });
     }
     onProgress(i + 1, fens.length);
@@ -90,12 +104,14 @@ async function analyseGame(rec: GameRecord, onProgress: (done: number, total: nu
       winLoss: Math.round(loss * 10) / 10,
       second: sec ? uciToSan(fens[i], sec.uci) : undefined,
       secondLoss: winSecond !== null ? Math.round(wb - winSecond) : undefined,
+      wdl: evals[i + 1].wdl,
     });
     acc[white ? 'white' : 'black'].push(moveAccuracy(loss));
   }
   const avg = (a: number[]) => (a.length ? Math.round((10 * a.reduce((x, y) => x + y, 0)) / a.length) / 10 : 0);
   rec.analysis = analysis;
   rec.analysisVersion = ANALYSIS_VERSION;
+  rec.startWdl = evals[0].wdl;
   rec.accuracy = { white: avg(acc.white), black: avg(acc.black) };
   await saveGame(rec);
 }
@@ -118,6 +134,8 @@ export async function reviewView([idStr]: string[]): Promise<View> {
   let ply = fens.length - 1;
   let retry: { ply: number } | null = null;
   const evalBar = h('div.evalbar', h('div.evalfill'), h('span.evaltext'));
+  const wdlBar = h('div.wdlbar', { 'aria-label': 'Winning chances' }, h('div.wdl-w', h('span')), h('div.wdl-d', h('span')), h('div.wdl-b', h('span')));
+  let planToken = 0;
   const graph = h('div.graph');
   const detail = h('div.review-detail');
   const moveList = h('div.movelist.review');
@@ -129,6 +147,7 @@ export async function reviewView([idStr]: string[]): Promise<View> {
 
   function show(p: number) {
     retry = null;
+    planToken++;
     ply = Math.max(0, Math.min(p, fens.length - 1));
     board.set(fens[ply], { lastMove: lastMoves[ply] });
     board.clearAnnotations();
@@ -147,6 +166,49 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     (evalBar.firstChild as HTMLElement).style.height = `${w}%`;
     (evalBar.lastChild as HTMLElement).textContent = a ? fmtEval(cp, mate) : '';
     evalBar.classList.toggle('flipped', board.cg.state.orientation === 'black');
+    renderWdl();
+  }
+
+  const wdlAt = (p: number): WDL | undefined => (p === 0 ? rec!.startWdl : rec!.analysis?.[p - 1]?.wdl);
+
+  /** Broadcast-style White / Draw / Black bar. */
+  function renderWdl() {
+    const w = wdlAt(ply);
+    wdlBar.hidden = !w;
+    if (!w) return;
+    const pct = w.map((x) => Math.round(x / 10));
+    const labels = ['White', 'Draw', 'Black'];
+    [...wdlBar.children].forEach((seg, k) => {
+      (seg as HTMLElement).style.flexBasis = `${w[k] / 10}%`;
+      seg.firstElementChild!.textContent = pct[k] >= 14 ? `${labels[k]} ${pct[k]}%` : pct[k] >= 7 ? `${pct[k]}%` : '';
+    });
+  }
+
+  function techniqueChips(title: string, motifs: Motif[]) {
+    const real = motifs.filter((m) => lessonById(m.lesson));
+    if (!real.length) return null;
+    return h('div.technique', h('span.small.muted', title), ...real.map((m) => h('a.chip.tech', { href: `#/lesson/${m.lesson}` }, `🎓 ${m.label}`)));
+  }
+
+  /** Animate a SAN line on the board from position `from`, then offer to go back. */
+  async function playPlan(from: number, sans: string[]) {
+    const token = ++planToken;
+    const g = new Chess(fens[from]);
+    board.set(g.fen(), { lastMove: lastMoves[from] });
+    board.clearAnnotations();
+    for (const san of sans) {
+      await new Promise((r) => setTimeout(r, 850));
+      if (token !== planToken) return;
+      let m;
+      try {
+        m = g.move(san);
+      } catch {
+        break;
+      }
+      board.playMove(g.fen(), m.from, m.to, !!m.captured);
+      board.arrows([arrow(m.from + m.to, 'blue')]);
+    }
+    if (token === planToken) detail.append(h('button.btn.ghost', { onclick: () => show(ply) }, '↺ Back to the game position'));
   }
 
   function renderDetail() {
@@ -210,6 +272,44 @@ export async function reviewView([idStr]: string[]): Promise<View> {
         if (m.best) parts.push(rich(`**Better was ${m.best}** — it ${bestWhy()}`), retryRow());
         board.arrows([arrow(playedUci, 'red'), ...(bestUci ? [arrow(bestUci, 'green')] : [])]);
       }
+    }
+    // Winning-chances swing for the side that moved.
+    const wBefore = wdlAt(i);
+    const wAfter = m.wdl;
+    if (wBefore && wAfter) {
+      // overall chances = win + half of the draws
+      const chance = (w: WDL) => Math.round((side === 'white' ? w[0] + w[1] / 2 : w[2] + w[1] / 2) / 10);
+      const [b, a2] = [chance(wBefore), chance(wAfter)];
+      const d = a2 - b;
+      parts.push(
+        h(`p.swing${d > 2 ? '.up' : d < -2 ? '.down' : ''}`, `📈 ${side === 'white' ? 'White' : 'Black'}'s chances: ${b}% → ${a2}% `, h('strong', d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${-d}` : '±0')),
+      );
+    }
+    // Technique behind the move (or behind its refutation / the better move).
+    const isError = m.cls === 'inaccuracy' || m.cls === 'mistake' || m.cls === 'blunder' || m.cls === 'miss';
+    const next = a[i + 1];
+    const nextBestMove = next?.best ? safeMove(fens[ply], next.best) : null;
+    if (!isError) parts.push(techniqueChips('Technique used:', motifsOf(fens[i], played)));
+    else {
+      if (next && m.cls !== 'miss') parts.push(techniqueChips('Opponent can punish with:', lineMotifs(fens[ply], next.bestPv.slice(0, 5))));
+      const betterMove = m.best ? safeMove(fens[i], m.best) : null;
+      if (betterMove) parts.push(techniqueChips('The better move uses:', motifsOf(fens[i], betterMove)));
+    }
+    // How to continue from here.
+    if (next && nextBestMove && !new Chess(fens[ply]).isGameOver()) {
+      const toMove = side === 'white' ? 'Black' : 'White';
+      const line = next.bestPv;
+      const follow = line[1] ? safeMove(playedFen(fens[ply], [line[0]]), line[1]) : null;
+      const replyIdeas = describeMove(fens[ply], nextBestMove).filter((r) => r !== 'improves the position');
+      const followIdeas = follow ? describeMove(playedFen(fens[ply], [line[0]]), follow).filter((r) => r !== 'improves the position') : [];
+      const text =
+        `**🧭 How to continue:** ${toMove} to move. The best reply is **${line[0]}**${replyIdeas.length ? ` — it ${replyIdeas[0]}` : ''}.` +
+        (follow ? ` Then ${side === 'white' ? 'White' : 'Black'} continues with **${follow.san}**${followIdeas.length ? `, which ${followIdeas[0]}` : ''}.` : '') +
+        (line.length > 2 ? ` Main line: ${formatLine(fens[ply], line.slice(0, 6))}.` : '');
+      parts.push(
+        h('div.plan-box', rich(text), h('div.row.wrap', h('button.btn', { onclick: () => void playPlan(ply, line.slice(0, 6)) }, isError ? '▶ Show the punishment' : '▶ Play the plan'))),
+      );
+      if (!isError && follow) parts.push(techniqueChips('Next idea:', motifsOf(playedFen(fens[ply], [line[0]]), follow)));
     }
     parts.push(h('p.small.muted', `Evaluation after the move: ${fmtEval(m.cp, m.mate)}`));
     detail.replaceChildren(...parts.filter(Boolean) as HTMLElement[]);
@@ -325,7 +425,7 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     h('header.lesson-head', h('a.icon-btn', { href: '#/games', 'aria-label': 'Back' }, '‹'), h('div.grow', h('div.eyebrow', resultText), h('h2', `${rec.white} vs ${rec.black}`))),
     h(
       'div.play-layout',
-      h('div.board-col', h('div.board-with-bar', evalBar, board.el), graph, h('div.demo-ctrl', h('button.btn', { onclick: () => show(0) }, '⏮'), h('button.btn', { onclick: () => show(ply - 1) }, '◀'), h('button.btn', { onclick: () => show(ply + 1) }, '▶'), h('button.btn', { onclick: () => show(fens.length - 1) }, '⏭'), h('button.btn.ghost', { onclick: () => (board.flip(), renderEvalBar()) }, '⇅'))),
+      h('div.board-col', wdlBar, h('div.board-with-bar', evalBar, board.el), graph, h('div.demo-ctrl', h('button.btn', { onclick: () => show(0) }, '⏮'), h('button.btn', { onclick: () => show(ply - 1) }, '◀'), h('button.btn', { onclick: () => show(ply + 1) }, '▶'), h('button.btn', { onclick: () => show(fens.length - 1) }, '⏭'), h('button.btn.ghost', { onclick: () => (board.flip(), renderEvalBar()) }, '⇅'))),
       h('div.side-col', progress, detail, moments, summary, moveList),
     ),
   );
@@ -354,4 +454,18 @@ function sanLineToUci(fen: string, sans: string[]): string[] {
     }
   }
   return out;
+}
+
+function safeMove(fen: string, san: string) {
+  try {
+    return new Chess(fen).move(san);
+  } catch {
+    return null;
+  }
+}
+
+function playedFen(fen: string, sans: string[]): string {
+  const g = new Chess(fen);
+  for (const x of sans) g.move(x);
+  return g.fen();
 }

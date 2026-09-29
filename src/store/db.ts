@@ -35,6 +35,8 @@ export interface MoveAnalysis {
   /** engine's second choice (SAN) and how much worse it was (win%) — explains "Great" moves */
   second?: string;
   secondLoss?: number;
+  /** White win / draw / Black win (per mille) in the position AFTER the move */
+  wdl?: [number, number, number];
 }
 
 export interface GameRecord {
@@ -54,6 +56,8 @@ export interface GameRecord {
   analysis?: MoveAnalysis[];
   /** bumped when the classifier changes, so old reviews are recomputed */
   analysisVersion?: number;
+  /** White win / draw / Black win (per mille) in the starting position */
+  startWdl?: [number, number, number];
   accuracy?: { white: number; black: number };
   pure: boolean;
   hintsUsed: number;
