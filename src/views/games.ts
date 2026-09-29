@@ -33,27 +33,28 @@ export async function gamesView(): Promise<View> {
   const games = await listGames();
   const outcome = (g: GameRecord) => {
     if (g.result === '1/2-1/2') return ['draw', '½'];
+    if (g.userColor === 'both') return ['draw', g.result === '*' ? '•' : g.result === '1-0' ? '1-0' : '0-1'];
     const won = (g.result === '1-0' && g.userColor === 'white') || (g.result === '0-1' && g.userColor === 'black');
     return won ? ['win', 'W'] : ['loss', 'L'];
   };
   const el = h(
     'div.page',
-    h('h1', 'My games'),
-    games.length ? null : h('div.card', h('p', 'No games yet.'), h('a.btn.primary', { href: '#/play' }, 'Play your first game')),
+    h('div.row.between', h('h1', 'My games'), h('a.btn.primary', { href: '#/import' }, '⤒ Import game')),
+    games.length ? null : h('div.card', h('p', 'No games yet. Play one here, or import a game from chess.com / lichess (paste its PGN).'), h('div.row.wrap', h('a.btn.primary', { href: '#/play' }, 'Play a game'), h('a.btn', { href: '#/import' }, '⤒ Import a PGN'))),
     h(
       'div.game-list',
       games.map((g) => {
         const [cls, badge] = outcome(g);
-        const acc = g.accuracy ? (g.userColor === 'black' ? g.accuracy.black : g.accuracy.white) : null;
+        const acc = g.accuracy && g.userColor !== 'both' ? (g.userColor === 'black' ? g.accuracy.black : g.accuracy.white) : null;
         return h(
           'div.game-item',
           h(`span.result.${cls}`, badge),
           h(
             'div.grow',
             { onclick: () => go(`/review/${g.id}`) },
-            h('strong', g.userColor === 'white' ? g.black : g.white),
+            h('strong', g.userColor === 'both' ? `${g.white} vs ${g.black}` : g.userColor === 'white' ? g.black : g.white, g.source ? h('span.pill.src', ` ${g.source}`) : null),
             h('small', `${new Date(g.date).toLocaleString()} · ${g.timeControl === 'none' ? 'untimed' : g.timeControl} · ${Math.ceil(g.sans.length / 2)} moves · ${g.termination}`),
-            acc !== null ? h('small', `Your accuracy ${acc}%`) : h('small.muted', 'Not reviewed yet'),
+            acc !== null ? h('small', `Your accuracy ${acc}%`) : g.accuracy ? h('small', `Accuracy ⚪ ${g.accuracy.white}% · ⚫ ${g.accuracy.black}%`) : h('small.muted', 'Not reviewed yet'),
           ),
           h('button.icon-btn', { 'aria-label': 'Download PGN', onclick: () => download(`chess-seeker-${g.id}.pgn`, toPgn(g)) }, '⤓'),
           h('button.icon-btn', {

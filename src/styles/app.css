@@ -336,3 +336,10 @@ cg-board square.hl-yellow { background-color: rgb(245 205 60 / 0.6); }
 .coach-card.done { border-color: var(--accent); }
 .small-toggle { padding: 8px 10px; margin-top: 8px; font-size: 0.9rem; }
 @keyframes pop { from { transform: scale(0.96); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ------------------------------------------------ import */
+.pgn-input { width: 100%; min-height: 150px; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 0.85rem/1.4 ui-monospace, Menlo, monospace; resize: vertical; margin: 8px 0; }
+.import-preview .board-wrap { margin: 10px 0 6px; }
+.ply-slider { width: 100%; accent-color: var(--accent); margin: 8px 0; }
+.game-summary strong { font-size: 0.95rem; }
+.pill.src { margin-left: 6px; font-size: 0.7rem; font-weight: 600; }

@@ -61,6 +61,8 @@ export interface GameRecord {
   accuracy?: { white: number; black: number };
   pure: boolean;
   hintsUsed: number;
+  /** where an imported game came from (e.g. "Chess.com") */
+  source?: string;
 }
 
 export interface StudyLog {

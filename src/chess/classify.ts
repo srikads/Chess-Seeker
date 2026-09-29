@@ -19,16 +19,25 @@ export interface ClassifyInput {
   isSacrifice: boolean;
   /** class of the opponent's previous move */
   prevCls?: MoveClass;
+  /** the move walks into a forced mate that wasn't there before */
+  allowsMate?: boolean;
+  /** the mover had a forced mate and this move throws it away */
+  missedMate?: boolean;
+  /** simply taking back on the square the opponent just captured on */
+  isRecapture?: boolean;
 }
 
 export function classifyMove(x: ClassifyInput): MoveClass {
   const loss = Math.max(0, x.winBefore - x.winAfter);
+  // Forced mates matter even when the position was already decided.
+  if (x.allowsMate) return 'blunder';
+  if (x.missedMate) return 'miss';
   if (x.ply < 6 && loss < 4) return 'book';
   if (x.isBest || loss <= 1) {
     // Brilliant: a sound sacrifice that doesn't leave you worse (and wasn't a trivial win anyway).
     if (x.isSacrifice && x.winAfter >= 45 && x.winBefore < 97) return 'brilliant';
     // Great: the only good move — the next best choice is clearly worse.
-    if (x.winSecond !== null && x.winBefore - x.winSecond >= 12 && x.winBefore < 97) return 'great';
+    if (x.winSecond !== null && x.winBefore - x.winSecond >= 12 && x.winBefore < 97 && !x.isRecapture) return 'great';
     return 'best';
   }
   // Miss: the opponent just erred and this move lets the chance slip (big blunders stay blunders).

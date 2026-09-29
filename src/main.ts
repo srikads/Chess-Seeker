@@ -14,6 +14,7 @@ import { playView } from './views/play';
 import { gamesView } from './views/games';
 import { reviewView } from './views/review';
 import { settingsView } from './views/settings';
+import { importView } from './views/import';
 
 applyTheme();
 
@@ -22,7 +23,7 @@ const tabs = [
   { path: '/learn', icon: '🎓', label: 'Learn', match: /^\/(learn|lesson)/ },
   { path: '/puzzles', icon: '🧩', label: 'Puzzles', match: /^\/puzzles/ },
   { path: '/play', icon: '♞', label: 'Play', match: /^\/play/ },
-  { path: '/games', icon: '📊', label: 'Games', match: /^\/(games|review)/ },
+  { path: '/games', icon: '📊', label: 'Games', match: /^\/(games|review|import)/ },
 ];
 
 const nav = h(
@@ -53,6 +54,7 @@ route('/puzzles/:theme', puzzlesView);
 route('/play', playView);
 route('/games', gamesView);
 route('/review/:id', reviewView);
+route('/import', importView);
 route('/settings', settingsView);
 
 initTracker();

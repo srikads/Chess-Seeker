@@ -3,7 +3,7 @@ import { ALL_LESSONS, lessonsForTrack } from '../lessons';
 import { getLessonProgress, studySince, listGames, kvGet, getPuzzleAttempts, type StudyBucket } from '../store/db';
 import { settings, type Bucket } from '../store/settings';
 import { trackStudy } from '../store/tracker';
-import { tcById } from '../chess/clock';
+import { isLongTimeControl } from '../chess/pgn';
 import { canInstall, onInstallable, promptInstall } from '../pwa';
 import { nextLesson } from './learn';
 import type { View } from '../router';
@@ -38,7 +38,7 @@ export async function homeView(): Promise<View> {
   const focus = weekTotal < 60 ? 'tactics' : deficit[0].b;
 
   const weekAgo = Date.now() - 7 * 86400_000;
-  const longGames = games.filter((g) => g.date > weekAgo && tcById(g.timeControl).long && g.sans.length >= 20).length;
+  const longGames = games.filter((g) => g.date > weekAgo && isLongTimeControl(g.timeControl) && g.sans.length >= 20).length;
   const unreviewed = games.find((g) => !g.analysis);
   const next = nextLesson(progress);
   const focusLesson = lessonsForTrack(BUCKET_INFO[focus].track).find((l) => !progress.get(l.id)?.completed);

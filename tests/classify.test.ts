@@ -23,6 +23,11 @@ describe('classifyMove', () => {
     expect(classifyMove({ ...base, isBest: false, winAfter: 40 })).toBe('mistake');
     expect(classifyMove({ ...base, isBest: false, winAfter: 20 })).toBe('blunder');
   });
+  it('walking into mate is a blunder even when already lost', () =>
+    expect(classifyMove({ ...base, isBest: false, winBefore: 1, winAfter: 0, allowsMate: true })).toBe('blunder'));
+  it('throwing away a forced mate is a miss', () =>
+    expect(classifyMove({ ...base, isBest: false, winBefore: 100, winAfter: 99, missedMate: true })).toBe('miss'));
+  it('recaptures are not great', () => expect(classifyMove({ ...base, winSecond: 20, isRecapture: true })).toBe('best'));
   it('treats early sensible moves as book', () => expect(classifyMove({ ...base, ply: 2, isBest: false, winAfter: 53 })).toBe('book'));
 });
 

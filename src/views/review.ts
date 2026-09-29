@@ -26,7 +26,7 @@ const CLS_LABEL: Record<MoveClass, string> = {
 };
 
 /** Bump when classification changes so older reviews are recomputed. */
-const ANALYSIS_VERSION = 3;
+const ANALYSIS_VERSION = 4;
 
 type WDL = [number, number, number];
 
@@ -94,6 +94,10 @@ async function analyseGame(rec: GameRecord, onProgress: (done: number, total: nu
       isBest: bestSan === rec.sans[i],
       isSacrifice: isSacrifice(fens[i], played),
       prevCls: analysis[i - 1]?.cls,
+      // mate scores are White POV: negative = Black is mating
+      allowsMate: evals[i + 1].mate !== null && evals[i + 1].mate! * pov < 0 && !(evals[i].mate !== null && evals[i].mate! * pov < 0),
+      missedMate: evals[i].mate !== null && evals[i].mate! * pov > 0 && !(evals[i + 1].mate !== null && evals[i + 1].mate! * pov >= 0),
+      isRecapture: !!played.captured && i > 0 && !!new Chess(fens[i - 1]).move(rec.sans[i - 1]).captured && new Chess(fens[i - 1]).move(rec.sans[i - 1]).to === played.to,
     });
     analysis.push({
       cp: evals[i + 1].cp,
@@ -140,7 +144,7 @@ export async function reviewView([idStr]: string[]): Promise<View> {
   let onlyMine = false;
   const AUTO_MS = 1200;
   const coachSlot = h('div.coach-slot');
-  const autoBtn = h('button.btn.primary.auto-btn', { onclick: () => (auto ? stopAuto() : startAuto()) }, '▶ Auto-play');
+  const autoBtn = h('button.btn.primary.auto-btn', { onclick: () => (auto ? stopAuto() : startAuto()) }, '▶ Play');
   const evalBar = h('div.evalbar', h('div.evalfill'), h('span.evaltext'));
   const wdlBar = h('div.wdlbar', { 'aria-label': 'Winning chances' }, h('div.wdl-w', h('span')), h('div.wdl-d', h('span')), h('div.wdl-b', h('span')));
   let planToken = 0;
@@ -408,7 +412,7 @@ export async function reviewView([idStr]: string[]): Promise<View> {
   function stopAuto() {
     auto = false;
     clearTimeout(autoTimer);
-    autoBtn.textContent = '▶ Auto-play';
+    autoBtn.textContent = '▶ Play';
   }
 
   function startAuto() {
