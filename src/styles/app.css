@@ -320,3 +320,19 @@ cg-board square.hl-yellow { background-color: rgb(245 205 60 / 0.6); }
 .chip.tech { min-height: 32px; padding: 4px 11px; font-size: 0.85rem; border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); }
 .plan-box { background: color-mix(in srgb, var(--info) 10%, var(--surface-2)); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
 .plan-box .btn { margin-top: 6px; }
+
+/* ------------------------------------------------ guided review */
+.auto-btn { flex: 1; }
+.coach-slot:empty { display: none; }
+.coach-card { margin: 10px 0; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 2px solid var(--border); box-shadow: var(--shadow); animation: pop 0.25s ease-out; }
+.coach-card .row.wrap { margin-top: 10px; }
+.coach-title { font-size: 1.1rem; }
+.coach-card.brilliant { border-color: #1fc2bd; }
+.coach-card.great { border-color: #6f9fd8; }
+.coach-card.inaccuracy { border-color: #f2c14e; }
+.coach-card.mistake { border-color: #e8964a; }
+.coach-card.miss { border-color: #ff7a8a; }
+.coach-card.blunder { border-color: #e2574c; }
+.coach-card.done { border-color: var(--accent); }
+.small-toggle { padding: 8px 10px; margin-top: 8px; font-size: 0.9rem; }
+@keyframes pop { from { transform: scale(0.96); opacity: 0; } to { transform: none; opacity: 1; } }

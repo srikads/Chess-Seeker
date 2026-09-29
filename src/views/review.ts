@@ -132,7 +132,15 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     }
   }
   let ply = fens.length - 1;
-  let retry: { ply: number } | null = null;
+  /** A "play it yourself" challenge: find a good move in position `ply`. */
+  let retry: { ply: number; mode: 'better' | 'find' | 'punish' } | null = null;
+  // Guided (auto-play) review state
+  let auto = false;
+  let autoTimer = 0;
+  let onlyMine = false;
+  const AUTO_MS = 1200;
+  const coachSlot = h('div.coach-slot');
+  const autoBtn = h('button.btn.primary.auto-btn', { onclick: () => (auto ? stopAuto() : startAuto()) }, '▶ Auto-play');
   const evalBar = h('div.evalbar', h('div.evalfill'), h('span.evaltext'));
   const wdlBar = h('div.wdlbar', { 'aria-label': 'Winning chances' }, h('div.wdl-w', h('span')), h('div.wdl-d', h('span')), h('div.wdl-b', h('span')));
   let planToken = 0;
@@ -145,7 +153,9 @@ export async function reviewView([idStr]: string[]): Promise<View> {
 
   const userSide = (i: number) => (i % 2 === 0) === (new Chess(rec.startFen).turn() === 'w') ? 'white' : 'black';
 
-  function show(p: number) {
+  function show(p: number, fromAuto = false) {
+    if (!fromAuto) stopAuto();
+    coachSlot.replaceChildren();
     retry = null;
     planToken++;
     ply = Math.max(0, Math.min(p, fens.length - 1));
@@ -322,23 +332,37 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     detail.append(rich(`Best line: ${formatLine(fens[i], m.bestPv)}`));
   }
 
-  function startRetry(i: number) {
-    retry = { ply: i };
-    const side = userSide(i);
-    board.set(fens[i], { movable: side, lastMove: lastMoves[i] });
+  function startRetry(i: number, mode: 'better' | 'find' | 'punish' = 'better') {
+    stopAuto();
+    coachSlot.replaceChildren();
+    retry = { ply: i, mode };
+    const side = new Chess(fens[i]).turn() === 'w' ? 'white' : 'black';
+    board.set(fens[i], { movable: side, lastMove: lastMoves[i], orientation: board.cg.state.orientation });
     board.clearAnnotations();
-    detail.replaceChildren(h('div.banner.info', `Retry: find a better move than ${rec!.sans[i]}.`), h('button.btn.ghost', { onclick: () => show(i + 1) }, 'Cancel'));
+    const prompt =
+      mode === 'better'
+        ? `🎯 Your turn: find a better move than ${rec!.sans[i]}.`
+        : mode === 'find'
+          ? `🎯 Can you find the ${rec!.analysis![i].cls} move ${side === 'white' ? 'White' : 'Black'} played here?`
+          : `🎯 Your opponent just erred. Find the move that punishes it!`;
+    detail.replaceChildren(h('div.banner.info', prompt), h('p.small.muted', `${side === 'white' ? 'White' : 'Black'} to move — drag a piece on the board.`), h('div.row', h('button.btn', { onclick: () => showBest(i) }, 'Show me'), h('button.btn.ghost', { onclick: () => resumeAfter(i) }, 'Skip ›')));
+  }
+
+  /** Continue the guided review after a challenge on position `i`. */
+  function resumeAfter(i: number) {
+    show(Math.min(i + 1, fens.length - 1));
+    startAuto();
   }
 
   async function onRetryMove(mv: { from: string; to: string; promotion?: string }) {
     if (!retry) return;
-    const i = retry.ply;
+    const { ply: i, mode } = retry;
     const g = new Chess(fens[i]);
     let m;
     try {
       m = g.move(mv);
     } catch {
-      return startRetry(i);
+      return startRetry(i, mode);
     }
     board.set(g.fen(), { lastMove: [m.from, m.to] });
     detail.replaceChildren(h('div.banner.subtle', 'Checking…'));
@@ -347,14 +371,97 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     const after = r.lines[0] ? -scoreNum(r.lines[0]) : 0;
     const bestWhite = i === 0 ? 20 : rec!.analysis![i - 1]?.cp ?? 0;
     const lossNow = winPct(pov * bestWhite) - winPct(after);
-    const playedLoss = rec!.analysis![i].winLoss;
-    if (lossNow <= Math.max(4, playedLoss / 3)) {
+    const played = m.san === rec!.sans[i];
+    const ok = g.isCheckmate() || (mode === 'better' ? lossNow <= Math.max(4, rec!.analysis![i].winLoss / 3) && !played : lossNow <= 3 || (mode === 'find' && played));
+    const uci = m.from + m.to + (m.promotion ?? '');
+    const cont = h('button.btn.primary', { onclick: () => resumeAfter(i) }, '▶ Continue review');
+    if (ok) {
       playSound('good');
-      detail.replaceChildren(h('div.banner.good', `✓ ${m.san} — much better!`), rich(explainBest(fens[i], m.from + m.to + (m.promotion ?? ''), r.lines[0] ? [m.from + m.to, ...r.lines[0].pv] : [])), h('button.btn', { onclick: () => show(i + 1) }, 'Back to the game'));
+      const msg = mode === 'better' ? `✓ ${m.san} — much better!` : mode === 'find' ? `✓ ${m.san} — you found it!` : `✓ ${m.san} — punished!`;
+      detail.replaceChildren(h('div.banner.good', msg), rich(explainBest(fens[i], uci, r.lines[0] ? [uci, ...r.lines[0].pv] : [])), h('div.row.wrap', cont));
     } else {
       playSound('bad');
-      detail.replaceChildren(h('div.banner.bad', `${m.san} isn't an improvement.`), h('div.row', h('button.btn.primary', { onclick: () => startRetry(i) }, 'Try again'), h('button.btn', { onclick: () => showBest(i) }, 'Show best')));
+      const msg = mode === 'better' && played ? `That's the move from the game — look for something better.` : `${m.san} isn't it.`;
+      detail.replaceChildren(h('div.banner.bad', msg), h('div.row.wrap', h('button.btn.primary', { onclick: () => startRetry(i, mode) }, 'Try again'), h('button.btn', { onclick: () => showBest(i) }, 'Show me'), h('button.btn.ghost', { onclick: () => resumeAfter(i) }, 'Skip ›')));
     }
+  }
+
+  // ---------------------------------------------------------------- guided review
+  const PAUSE_CLASSES = new Set<MoveClass>(['brilliant', 'great', 'inaccuracy', 'mistake', 'miss', 'blunder']);
+  const isMine = (i: number) => rec!.userColor === userSide(i) || rec!.userColor === 'both';
+
+  /** Should the guided review stop after move i? */
+  function isHighlight(i: number): boolean {
+    const m = rec!.analysis?.[i];
+    if (!m) return false;
+    if (onlyMine && !isMine(i)) return false;
+    if (PAUSE_CLASSES.has(m.cls)) return !(m.cls === 'inaccuracy' && !isMine(i));
+    const before = wdlAt(i);
+    if (before && m.wdl) {
+      const k = userSide(i) === 'white' ? 0 : 2;
+      const chance = (w: WDL) => (w[k] + w[1] / 2) / 10;
+      return Math.abs(chance(m.wdl) - chance(before)) >= 15;
+    }
+    return false;
+  }
+
+  function stopAuto() {
+    auto = false;
+    clearTimeout(autoTimer);
+    autoBtn.textContent = '▶ Auto-play';
+  }
+
+  function startAuto() {
+    if (!rec!.analysis) return;
+    if (ply >= fens.length - 1) show(0);
+    auto = true;
+    coachSlot.replaceChildren();
+    autoBtn.textContent = '⏸ Pause';
+    autoTimer = window.setTimeout(autoStep, 700);
+  }
+
+  function autoStep() {
+    if (!auto) return;
+    if (ply >= fens.length - 1) {
+      stopAuto();
+      coachSlot.replaceChildren(h('div.coach-card.done', h('strong', '🏁 Review complete'), h('p.small', 'Check your key moments and accuracy below, or tap any move to revisit it.')));
+      return;
+    }
+    show(ply + 1, true);
+    const san = rec!.sans[ply - 1];
+    playSound(san.includes('x') ? 'capture' : san.includes('+') ? 'check' : 'move');
+    if (isHighlight(ply - 1)) {
+      stopAuto();
+      renderCoachCard(ply - 1);
+    } else autoTimer = window.setTimeout(autoStep, AUTO_MS);
+  }
+
+  /** Duolingo-style pause card at a highlight moment. */
+  function renderCoachCard(i: number) {
+    const m = rec!.analysis![i];
+    const mine = isMine(i);
+    const titles: Partial<Record<MoveClass, string>> = {
+      brilliant: '💎 Brilliant move!',
+      great: '🔥 Great move!',
+      inaccuracy: '🤔 Inaccuracy',
+      mistake: '⚠️ Mistake',
+      miss: '😬 Missed chance',
+      blunder: '💥 Blunder!',
+    };
+    const title = titles[m.cls] ?? '📈 Turning point';
+    const who = mine ? 'You' : userSide(i) === 'white' ? rec!.white : rec!.black;
+    const isError = ['inaccuracy', 'mistake', 'miss', 'blunder'].includes(m.cls);
+    const canPunish = isError && !mine && !new Chess(fens[i + 1]).isGameOver() && !!rec!.analysis![i + 1];
+    let tryBtn: HTMLElement | null = null;
+    if (isError && mine && m.best) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'better') }, '🎯 Play the better move');
+    else if (canPunish) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i + 1, 'punish') }, '🎯 Punish it yourself');
+    else if (m.cls === 'brilliant' || m.cls === 'great' || !isError) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'find') }, '🎯 Play this move yourself');
+    const card = h(
+      `div.coach-card.${m.cls}`,
+      h('div.row.between', h('strong.coach-title', title), h('span.small.muted', `${who} · ${Math.floor(i / 2) + 1}${userSide(i) === 'black' ? '…' : '.'} ${rec!.sans[i]}`)),
+      h('div.row.wrap', tryBtn, h('button.btn', { onclick: () => startAuto() }, '▶ Continue')),
+    );
+    coachSlot.replaceChildren(card);
   }
 
   function renderAll() {
@@ -406,8 +513,9 @@ export async function reviewView([idStr]: string[]): Promise<View> {
       });
       progress.replaceChildren();
       renderAll();
-      show(ply);
-      toast('Analysis complete', 'good');
+      show(0);
+      toast('Analysis complete — starting guided review', 'good');
+      startAuto();
     } catch {
       /* cancelled by navigation */
     }
@@ -416,6 +524,7 @@ export async function reviewView([idStr]: string[]): Promise<View> {
   const keyHandler = (e: KeyboardEvent) => {
     if (e.key === 'ArrowLeft') show(ply - 1);
     if (e.key === 'ArrowRight') show(ply + 1);
+    if (e.key === ' ') (e.preventDefault(), auto ? stopAuto() : startAuto());
   };
   addEventListener('keydown', keyHandler);
 
@@ -425,17 +534,22 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     h('header.lesson-head', h('a.icon-btn', { href: '#/games', 'aria-label': 'Back' }, '‹'), h('div.grow', h('div.eyebrow', resultText), h('h2', `${rec.white} vs ${rec.black}`))),
     h(
       'div.play-layout',
-      h('div.board-col', wdlBar, h('div.board-with-bar', evalBar, board.el), graph, h('div.demo-ctrl', h('button.btn', { onclick: () => show(0) }, '⏮'), h('button.btn', { onclick: () => show(ply - 1) }, '◀'), h('button.btn', { onclick: () => show(ply + 1) }, '▶'), h('button.btn', { onclick: () => show(fens.length - 1) }, '⏭'), h('button.btn.ghost', { onclick: () => (board.flip(), renderEvalBar()) }, '⇅'))),
+      h('div.board-col', wdlBar, h('div.board-with-bar', evalBar, board.el), graph, h('div.demo-ctrl', h('button.btn', { 'aria-label': 'Start', onclick: () => show(0) }, '⏮'), h('button.btn', { 'aria-label': 'Previous move', onclick: () => show(ply - 1) }, '◀'), autoBtn, h('button.btn', { 'aria-label': 'Next move', onclick: () => show(ply + 1) }, '▶'), h('button.btn', { 'aria-label': 'End', onclick: () => show(fens.length - 1) }, '⏭'), h('button.btn.ghost', { 'aria-label': 'Flip board', onclick: () => (board.flip(), renderEvalBar()) }, '⇅')),
+        coachSlot,
+        h('label.toggle.small-toggle', h('input', { type: 'checkbox', onchange: (e: Event) => (onlyMine = (e.target as HTMLInputElement).checked) }), h('span', h('strong', 'Pause only at my moves'), h('small', 'Otherwise it also stops at the opponent’s big moments.')))),
       h('div.side-col', progress, detail, moments, summary, moveList),
     ),
   );
   renderAll();
-  show(ply);
-  if (!rec.analysis || (rec.analysisVersion ?? 1) < ANALYSIS_VERSION) void runAnalysis();
+  const fresh = !rec.analysis || (rec.analysisVersion ?? 1) < ANALYSIS_VERSION;
+  show(fresh ? ply : 0);
+  if (fresh) void runAnalysis();
+  else startAuto();
   return {
     el,
     destroy: () => {
       removeEventListener('keydown', keyHandler);
+      stopAuto();
       engine.cancelAll();
       board.destroy();
     },
