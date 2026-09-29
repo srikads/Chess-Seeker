@@ -233,7 +233,7 @@ export const ENDGAMES: Lesson[] = [
           { san: 'Kd6', text: 'Follow with your king, one step behind on the 6th rank.' },
           { san: 'Kb8', text: 'Black keeps running toward the corner.' },
           { san: 'Kc6', text: 'Keep following.' },
-          { san: 'Ka8', text: 'The king reaches the corner. (1...Kc8 would allow Rh8# too.)' },
+          { san: 'Ka8', text: 'The king reaches the corner. (Kc8 would allow Rh8# too, with the kings face to face.)' },
           { san: 'Kb6', text: 'The kings are now close together. Black has only one move.' },
           { san: 'Kb8', text: 'Forced: the kings now face each other on the b-file.', highlights: hl('blue', 'b6', 'b8') },
           { san: 'Rh8#', text: 'Checkmate! The rook checks along the back rank and your king on b6 covers a7, b7 and c7.', highlights: box('a8', 'h8', 'green') },
@@ -303,7 +303,7 @@ export const ENDGAMES: Lesson[] = [
       {
         kind: 'explain',
         title: 'Draw the square',
-        fen: '8/8/8/6k1/1P6/8/8/K7 w - - 0 1',
+        fen: '8/8/8/6k1/1P6/8/8/7K w - - 0 1',
         text:
           'The b4 pawn needs 4 moves to reach b8. Draw a square with the pawn\'s path as one side: b4 up to b8 and 4 files across to f8 (yellow). ' +
           'If the black king can step inside this square, it catches the pawn. The king on g5 is just outside. ' +
@@ -315,7 +315,7 @@ export const ENDGAMES: Lesson[] = [
       {
         kind: 'demo',
         title: 'The king steps into the square',
-        fen: '8/8/6k1/8/2P5/8/8/K7 w - - 0 1',
+        fen: '8/8/6k1/8/2P5/8/8/7K w - - 0 1',
         text: 'The c4 pawn\'s square is c4–g8, and the black king on g6 is already inside. Watch the square shrink as the pawn runs — the king stays inside every time.',
         highlights: box('c4', 'g8', 'yellow'),
         moves: [
@@ -912,7 +912,7 @@ export const ENDGAMES: Lesson[] = [
           { san: 'Rf1+', text: 'Step 1: check the black king to push it one more file away.' },
           { san: 'Kg7', text: 'The king has to leave the f-file. Now it is two files from the pawn.' },
           { san: 'Rf4', text: 'Step 2: the bridge! The rook goes to the 4th rank. It will block the checks later.', highlights: box('a4', 'h4', 'yellow') },
-          { san: 'Rc1', text: 'Black waits. (Checking now does not help: the rook checks run out soon.)' },
+          { san: 'Rc1', text: 'Black waits. (Checks from the side would not help: the white king simply walks toward the black rook and the checks run out.)' },
           { san: 'Ke7', text: 'The white king leaves the queening square.' },
           { san: 'Re1+', text: 'Black starts checking from behind.' },
           { san: 'Kd6', text: 'The king walks down toward the rook on f4.' },
