@@ -5,6 +5,7 @@ import { playSound } from '../ui/sound';
 import { engine, scoreNum, winPct, fmtEval } from '../engine/engine';
 import { explainBest, describeMove } from '../chess/explain';
 import { coachCard, displayName } from '../chess/coach';
+import { performance, ratingInName } from '../chess/performance';
 import { classifyMove, isSacrifice, moveAccuracy } from '../chess/classify';
 import { motifsOf, lineMotifs, type Motif } from '../chess/motifs';
 import { lessonById } from '../lessons';
@@ -495,6 +496,40 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     coachSlot.replaceChildren(card);
   }
 
+  const whiteFirst = new Chess(rec.startFen).turn() === 'w';
+
+  /** Accuracy plus "played like ~N" for one side, compared with their rating when we know it. */
+  function playerCard(side: 'white' | 'black') {
+    const name = side === 'white' ? rec!.white : rec!.black;
+    const perf = performance(rec!.analysis!, side, whiteFirst);
+    const rated = ratingInName(name);
+    const diff = perf.rating !== null && rated !== null ? perf.rating - rated : null;
+    return h(
+      'div',
+      h('small', name),
+      h('strong', `${rec!.accuracy?.[side] ?? '–'}%`),
+      h('div.perf', perf.rating !== null ? ['Played like ', h('b', `≈${perf.rating}`)] : 'Too few moves to rate'),
+      diff !== null ? h(`div.perf-diff${diff >= 50 ? '.up' : diff <= -50 ? '.down' : ''}`, `rated ${rated} · ${diff > 0 ? `▲ ${diff}` : diff < 0 ? `▼ ${-diff}` : '±0'}`) : null,
+    );
+  }
+
+  /** One sentence about the user's own performance. */
+  function performanceNote() {
+    if (rec!.userColor === 'both') return null;
+    const side = rec!.userColor;
+    const you = performance(rec!.analysis!, side, whiteFirst).rating;
+    const oppSide = side === 'white' ? 'black' : 'white';
+    const oppName = side === 'white' ? rec!.black : rec!.white;
+    const them = performance(rec!.analysis!, oppSide, whiteFirst).rating;
+    if (you === null) return null;
+    const yourRating = ratingInName(side === 'white' ? rec!.white : rec!.black);
+    let text = `🎯 This game you played like a **~${you}** player`;
+    if (yourRating !== null) text += you >= yourRating + 50 ? ` — ${you - yourRating} above your ${yourRating} rating. Nice!` : you <= yourRating - 50 ? ` — ${yourRating - you} below your ${yourRating} rating.` : ` — right around your ${yourRating} rating.`;
+    else text += '.';
+    if (them !== null) text += ` ${displayName(oppName)} played like a **~${them}**.`;
+    return h('div.perf-note', rich(text + ' (A rough estimate from move accuracy — one game is a small sample.)'));
+  }
+
   function renderAll() {
     const a = rec!.analysis;
     // move list
@@ -508,8 +543,10 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     // summary
     const count = (side: 'white' | 'black', c: MoveClass) => a.filter((m, i) => userSide(i) === side && m.cls === c).length;
     const row = (c: MoveClass) => h('tr', h('td', h(`span.cls.${c}`, CLS_LABEL[c])), h('td', String(count('white', c))), h('td', String(count('black', c))));
-    summary.replaceChildren(
-      h('div.acc', h('div', h('small', rec!.white), h('strong', `${rec!.accuracy?.white ?? '–'}%`)), h('div', h('small', rec!.black), h('strong', `${rec!.accuracy?.black ?? '–'}%`))),
+    setChildren(
+      summary,
+      h('div.acc', playerCard('white'), playerCard('black')),
+      performanceNote(),
       h('table.cls-table', h('tr', h('th', ''), h('th', '⚪'), h('th', '⚫')), ...(['brilliant', 'great', 'best', 'excellent', 'good', 'book', 'inaccuracy', 'mistake', 'miss', 'blunder'] as MoveClass[]).map(row)),
     );
     // key moments: the user's errors to learn from, and their best moments

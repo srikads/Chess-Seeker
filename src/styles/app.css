@@ -352,3 +352,8 @@ cg-board square.hl-yellow { background-color: rgb(245 205 60 / 0.6); }
 .coach-actions { margin-top: 12px; }
 .coach-more { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
 .coach-more > summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+.acc .perf { font-size: 0.85rem; margin-top: 4px; }
+.acc .perf-diff { font-size: 0.78rem; opacity: 0.8; }
+.acc .perf-diff.up { color: var(--good); opacity: 1; }
+.acc .perf-diff.down { color: var(--bad); opacity: 1; }
+.perf-note { font-size: 0.92rem; margin: 4px 0 10px; }
