@@ -3,11 +3,12 @@ import { h, rich, toast, setChildren } from '../ui/dom';
 import { BoardView, arrow } from '../ui/board';
 import { playSound } from '../ui/sound';
 import { engine, scoreNum, winPct, fmtEval } from '../engine/engine';
-import { explainBest, explainMistake, describeMove } from '../chess/explain';
+import { explainBest, describeMove } from '../chess/explain';
+import { coachCard, displayName } from '../chess/coach';
 import { classifyMove, isSacrifice, moveAccuracy } from '../chess/classify';
 import { motifsOf, lineMotifs, type Motif } from '../chess/motifs';
 import { lessonById } from '../lessons';
-import { pvToSan, formatLine, uciToSan, NAME } from '../chess/util';
+import { pvToSan, formatLine, uciToSan } from '../chess/util';
 import { getGame, saveGame, type GameRecord, type MoveAnalysis, type MoveClass } from '../store/db';
 import { trackStudy } from '../store/tracker';
 import type { View } from '../router';
@@ -141,7 +142,9 @@ export async function reviewView([idStr]: string[]): Promise<View> {
   // Guided (auto-play) review state
   let auto = false;
   let autoTimer = 0;
-  let onlyMine = false;
+  let alsoTheirs = false;
+  /** keep the 'More' section open while stepping through moves once the user opened it */
+  let moreOpen = false;
   const AUTO_MS = 1200;
   const coachSlot = h('div.coach-slot');
   const autoBtn = h('button.btn.primary.auto-btn', { onclick: () => (auto ? stopAuto() : startAuto()) }, '▶ Play');
@@ -156,6 +159,8 @@ export async function reviewView([idStr]: string[]): Promise<View> {
   const progress = h('div.progress-line');
 
   const userSide = (i: number) => (i % 2 === 0) === (new Chess(rec.startFen).turn() === 'w') ? 'white' : 'black';
+  /** Was move i played by the user? */
+  const isMine = (i: number) => rec.userColor === userSide(i) || rec.userColor === 'both';
 
   function show(p: number, fromAuto = false) {
     if (!fromAuto) stopAuto();
@@ -222,7 +227,15 @@ export async function reviewView([idStr]: string[]): Promise<View> {
       board.playMove(g.fen(), m.from, m.to, !!m.captured);
       board.arrows([arrow(m.from + m.to, 'blue')]);
     }
-    if (token === planToken) detail.append(h('button.btn.ghost', { onclick: () => show(ply) }, '↺ Back to the game position'));
+    if (token === planToken && !detail.querySelector('.plan-back')) detail.append(h('button.btn.ghost.plan-back', { onclick: () => show(ply) }, '↺ Back to the game position'));
+  }
+
+  /** How the coach refers to the other side when talking about move i. */
+  function oppName(i: number): string {
+    const mover = userSide(i);
+    if (rec!.userColor === 'both') return mover === 'white' ? 'Black' : 'White';
+    const oppSide = isMine(i) ? (mover === 'white' ? 'black' : 'white') : mover;
+    return displayName(oppSide === 'white' ? rec!.white : rec!.black);
   }
 
   function renderDetail() {
@@ -234,99 +247,97 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     const i = ply - 1;
     const san = rec!.sans[i];
     const side = userSide(i);
-    const who = rec!.userColor === side || rec!.userColor === 'both' ? 'You' : side === 'white' ? rec!.white : rec!.black;
+    const mine = isMine(i);
+    const who = mine ? 'You' : side === 'white' ? rec!.white : rec!.black;
     const moveNo = `${Math.floor(i / 2) + 1}${side === 'white' ? '.' : '…'}`;
     if (!a) {
       detail.replaceChildren(h('p', `${moveNo} ${san}`));
       return;
     }
     const m = a[i];
+    const next = a[i + 1];
     const played = new Chess(fens[i]).move(san);
     const playedUci = played.from + played.to + (played.promotion ?? '');
-    const bestUci = m.best ? sanLineToUci(fens[i], [m.best])[0] : '';
-    const reasons = describeMove(fens[i], played).filter((r) => r !== 'improves the position');
-    const why = reasons.length ? reasons.join('; ') : 'keeps the position in good shape';
-    const bestWhy = () => explainBest(fens[i], bestUci, sanLineToUci(fens[i], m.bestPv)).replace(/^\*\*.+?\*\* /, '');
-    const retryRow = () =>
-      h('div.row.wrap', h('button.btn', { onclick: () => showBest(i) }, 'Show best move'), h('button.btn.primary', { onclick: () => startRetry(i) }, '↻ Retry this moment'));
-    const parts: (HTMLElement | null)[] = [h('div.row', h(`span.cls.${m.cls}`, CLS_LABEL[m.cls]), h('strong', `${moveNo} ${san}`), h('span.muted.small', `by ${who}`))];
-    switch (m.cls) {
-      case 'brilliant':
-        parts.push(rich(`**Brilliant!** ${san} sacrifices the ${NAME[played.piece]} on ${played.to} — it can be taken, but Stockfish confirms the sacrifice works. The move ${why}.`));
-        if (m.bestPv.length > 1) parts.push(rich(`The idea: ${formatLine(fens[i], m.bestPv.slice(0, 6))}.`));
-        board.arrows([arrow(playedUci, 'blue')]);
-        break;
-      case 'great':
-        parts.push(rich(`**Great move — the only good one here.** ${san} ${why}.${m.second ? ` The next-best option, ${m.second}, would have cost about ${m.secondLoss}% winning chances.` : ''}`));
-        board.arrows([arrow(playedUci, 'blue')]);
-        break;
-      case 'best':
-      case 'excellent':
-      case 'good':
-      case 'book':
-        parts.push(rich(`**Why it works:** ${san} ${why}.`));
-        if (m.cls !== 'best' && m.cls !== 'book' && m.best && m.best !== san) {
-          parts.push(rich(`Stockfish slightly preferred **${m.best}** — it ${bestWhy()}`));
-          board.arrows([arrow(playedUci, 'green'), arrow(bestUci, 'blue')]);
-        } else board.arrows([arrow(playedUci, 'green')]);
-        break;
-      case 'miss': {
-        const prevSan = rec!.sans[i - 1];
-        parts.push(rich(`**Missed chance.** Your opponent's ${prevSan} was a mistake, but ${san} lets them off the hook.`));
-        if (m.best) parts.push(rich(`**${m.best} would have punished it** — it ${bestWhy()}`), retryRow());
-        board.arrows([arrow(playedUci, 'red'), ...(bestUci ? [arrow(bestUci, 'green')] : [])]);
-        break;
-      }
-      default: {
-        // inaccuracy / mistake / blunder — the opponent's best reply is the engine's line from the next position.
-        const replyPv = sanLineToUci(fens[ply], a[i + 1]?.bestPv ?? []);
-        const pov = side === 'white' ? 1 : -1;
-        const oppMate = m.mate !== null && m.mate * pov < 0 ? Math.abs(m.mate) : null;
-        parts.push(rich(`**Why it's ${m.cls === 'inaccuracy' ? 'an' : 'a'} ${m.cls}:** ${explainMistake(fens[i], played, replyPv, oppMate)}`));
-        if (m.best) parts.push(rich(`**Better was ${m.best}** — it ${bestWhy()}`), retryRow());
-        board.arrows([arrow(playedUci, 'red'), ...(bestUci ? [arrow(bestUci, 'green')] : [])]);
-      }
-    }
-    // Winning-chances swing for the side that moved.
+    const bestUci = m.best ? sanLineToUci(fens[i], [m.best])[0] ?? '' : '';
+    const replyUci = next?.best ? sanLineToUci(fens[ply], [next.best])[0] ?? '' : '';
+    const pov = side === 'white' ? 1 : -1;
+    const card = coachCard({
+      fen: fens[i],
+      san,
+      cls: m.cls,
+      mine,
+      opp: oppName(i),
+      best: m.best || undefined,
+      bestPv: m.bestPv,
+      replyPv: next?.bestPv ?? [],
+      matedIn: m.mate !== null && m.mate * pov < 0 ? Math.abs(m.mate) : null,
+      prevSan: rec!.sans[i - 1],
+    });
+    const isError = m.cls === 'inaccuracy' || m.cls === 'mistake' || m.cls === 'blunder' || m.cls === 'miss';
+    const gameOver = new Chess(fens[ply]).isGameOver();
+
+    // Arrows: red = the problem, green = what to play instead / how to punish.
+    if (isError && mine) board.arrows([arrow(playedUci, 'red'), ...(bestUci && bestUci !== playedUci ? [arrow(bestUci, 'green')] : [])]);
+    else if (isError && m.cls === 'miss') board.arrows([arrow(playedUci, 'blue'), ...(bestUci ? [arrow(bestUci, 'red')] : [])]);
+    else if (isError) board.arrows([arrow(playedUci, 'red'), ...(replyUci && !gameOver ? [arrow(replyUci, 'green')] : [])]);
+    else board.arrows([arrow(playedUci, mine ? 'green' : 'blue')]);
+
+    // Action buttons: replay lines on the board, or try it yourself.
+    const replayBtn = (r: NonNullable<typeof card.replay>) =>
+      h('button.btn', { onclick: () => void playPlan(r.from === 'reply' ? ply : i, r.sans) }, r.label);
+    let tryBtn: HTMLElement | null = null;
+    if (mine && m.cls === 'miss') tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'punish') }, '🎯 Find the punishing move');
+    else if (mine && isError && m.best && m.best !== san) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'better') }, '🎯 Try a better move');
+    else if (!mine && isError && m.cls !== 'miss' && next && !gameOver) tryBtn = h('button.btn.primary', { onclick: () => startRetry(ply, 'punish') }, '🎯 Punish it yourself');
+
+    const parts: (HTMLElement | null)[] = [
+      h('div.row', h(`span.cls.${m.cls}`, CLS_LABEL[m.cls]), h('strong', `${moveNo} ${san}`), h('span.muted.small', `by ${who}`)),
+      rich(card.headline),
+      ...card.sections.map((s) => h('div.coach-sec', h('div.coach-sec-t', `${s.icon} ${s.title}`), rich(s.text))),
+    ];
+    const buttons = [card.replay ? replayBtn(card.replay) : null, card.replay2 ? replayBtn(card.replay2) : null, tryBtn].filter(Boolean) as HTMLElement[];
+    if (buttons.length) parts.push(h('div.row.wrap.coach-actions', ...buttons));
+
+    // ---- "More": chances swing, techniques, how to continue, engine numbers
+    const more: (HTMLElement | null)[] = [];
     const wBefore = wdlAt(i);
     const wAfter = m.wdl;
     if (wBefore && wAfter) {
-      // overall chances = win + half of the draws
-      const chance = (w: WDL) => Math.round((side === 'white' ? w[0] + w[1] / 2 : w[2] + w[1] / 2) / 10);
+      // overall chances = win + half of the draws, for the user (or the mover when the user played both sides)
+      const forSide = rec!.userColor === 'both' ? side : rec!.userColor;
+      const chance = (w: WDL) => Math.round((forSide === 'white' ? w[0] + w[1] / 2 : w[2] + w[1] / 2) / 10);
       const [b, a2] = [chance(wBefore), chance(wAfter)];
       const d = a2 - b;
-      parts.push(
-        h(`p.swing${d > 2 ? '.up' : d < -2 ? '.down' : ''}`, `📈 ${side === 'white' ? 'White' : 'Black'}'s chances: ${b}% → ${a2}% `, h('strong', d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${-d}` : '±0')),
-      );
+      const whose = rec!.userColor === 'both' ? `${forSide === 'white' ? 'White' : 'Black'}'s` : 'Your';
+      more.push(h(`p.swing${d > 2 ? '.up' : d < -2 ? '.down' : ''}`, `📈 ${whose} chances: ${b}% → ${a2}% `, h('strong', d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${-d}` : '±0')));
     }
-    // Technique behind the move (or behind its refutation / the better move).
-    const isError = m.cls === 'inaccuracy' || m.cls === 'mistake' || m.cls === 'blunder' || m.cls === 'miss';
-    const next = a[i + 1];
+    if (!isError) more.push(techniqueChips(mine ? 'Technique used:' : `Technique ${oppName(i)} used:`, motifsOf(fens[i], played)));
+    else if (m.cls === 'miss') {
+      const bestMove = m.best ? safeMove(fens[i], m.best) : null;
+      if (bestMove) more.push(techniqueChips(mine ? 'The punishing move uses:' : 'The move they missed uses:', motifsOf(fens[i], bestMove)));
+    } else {
+      if (next) more.push(techniqueChips(mine ? `${oppName(i)} can punish with:` : 'You can punish with:', lineMotifs(fens[ply], next.bestPv.slice(0, 5))));
+      const betterMove = mine && m.best ? safeMove(fens[i], m.best) : null;
+      if (betterMove) more.push(techniqueChips('The better move uses:', motifsOf(fens[i], betterMove)));
+    }
     const nextBestMove = next?.best ? safeMove(fens[ply], next.best) : null;
-    if (!isError) parts.push(techniqueChips('Technique used:', motifsOf(fens[i], played)));
-    else {
-      if (next && m.cls !== 'miss') parts.push(techniqueChips('Opponent can punish with:', lineMotifs(fens[ply], next.bestPv.slice(0, 5))));
-      const betterMove = m.best ? safeMove(fens[i], m.best) : null;
-      if (betterMove) parts.push(techniqueChips('The better move uses:', motifsOf(fens[i], betterMove)));
-    }
-    // How to continue from here.
-    if (next && nextBestMove && !new Chess(fens[ply]).isGameOver()) {
-      const toMove = side === 'white' ? 'Black' : 'White';
+    if (next && nextBestMove && !gameOver) {
       const line = next.bestPv;
+      const nextMine = isMine(i + 1);
+      const toMove = nextMine ? 'You are' : `${oppName(i + 1)} is`;
       const follow = line[1] ? safeMove(playedFen(fens[ply], [line[0]]), line[1]) : null;
       const replyIdeas = describeMove(fens[ply], nextBestMove).filter((r) => r !== 'improves the position');
-      const followIdeas = follow ? describeMove(playedFen(fens[ply], [line[0]]), follow).filter((r) => r !== 'improves the position') : [];
       const text =
-        `**🧭 How to continue:** ${toMove} to move. The best reply is **${line[0]}**${replyIdeas.length ? ` — it ${replyIdeas[0]}` : ''}.` +
-        (follow ? ` Then ${side === 'white' ? 'White' : 'Black'} continues with **${follow.san}**${followIdeas.length ? `, which ${followIdeas[0]}` : ''}.` : '') +
+        `**🧭 How to continue:** ${rec!.userColor === 'both' ? `${side === 'white' ? 'Black' : 'White'} is` : toMove} to move. The best move is **${line[0]}**${replyIdeas.length ? ` — it ${replyIdeas[0]}` : ''}.` +
+        (follow ? ` Then **${follow.san}**.` : '') +
         (line.length > 2 ? ` Main line: ${formatLine(fens[ply], line.slice(0, 6))}.` : '');
-      parts.push(
-        h('div.plan-box', rich(text), h('div.row.wrap', h('button.btn', { onclick: () => void playPlan(ply, line.slice(0, 6)) }, isError ? '▶ Show the punishment' : '▶ Play the plan'))),
-      );
-      if (!isError && follow) parts.push(techniqueChips('Next idea:', motifsOf(playedFen(fens[ply], [line[0]]), follow)));
+      more.push(h('div.plan-box', rich(text), h('div.row.wrap', h('button.btn', { onclick: () => void playPlan(ply, line.slice(0, 6)) }, '▶ Play the line'))));
     }
-    parts.push(h('p.small.muted', `Evaluation after the move: ${fmtEval(m.cp, m.mate)}`));
-    detail.replaceChildren(...parts.filter(Boolean) as HTMLElement[]);
+    if (m.best && m.bestPv.length) more.push(rich(`Engine’s best line here: ${formatLine(fens[i], m.bestPv.slice(0, 8))}`));
+    more.push(h('p.small.muted', `Evaluation after the move: ${fmtEval(m.cp, m.mate)}`));
+    const moreBox = h('details.coach-more', { open: moreOpen, ontoggle: (e: Event) => (moreOpen = (e.target as HTMLDetailsElement).open) }, h('summary', 'More'), ...(more.filter(Boolean) as HTMLElement[]));
+    parts.push(moreBox);
+    detail.replaceChildren(...(parts.filter(Boolean) as HTMLElement[]));
   }
 
   function showBest(i: number) {
@@ -371,6 +382,7 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     board.set(g.fen(), { lastMove: [m.from, m.to] });
     detail.replaceChildren(h('div.banner.subtle', 'Checking…'));
     const r = await engine.analyse(g.fen(), { depth: 13 });
+    if (retry?.ply !== i || retry.mode !== mode) return; // the user stepped elsewhere meanwhile
     const pov = g.turn() === 'w' ? -1 : 1; // mover's POV
     const after = r.lines[0] ? -scoreNum(r.lines[0]) : 0;
     const bestWhite = i === 0 ? 20 : rec!.analysis![i - 1]?.cp ?? 0;
@@ -392,14 +404,19 @@ export async function reviewView([idStr]: string[]): Promise<View> {
 
   // ---------------------------------------------------------------- guided review
   const PAUSE_CLASSES = new Set<MoveClass>(['brilliant', 'great', 'inaccuracy', 'mistake', 'miss', 'blunder']);
-  const isMine = (i: number) => rec!.userColor === userSide(i) || rec!.userColor === 'both';
 
-  /** Should the guided review stop after move i? */
+  /**
+   * Should the guided review stop after move i? By default: your errors and best moves, big swings
+   * in your moves, and the opponent's mistakes (a chance for you). Optionally also the opponent's strong moves.
+   */
   function isHighlight(i: number): boolean {
     const m = rec!.analysis?.[i];
     if (!m) return false;
-    if (onlyMine && !isMine(i)) return false;
-    if (PAUSE_CLASSES.has(m.cls)) return !(m.cls === 'inaccuracy' && !isMine(i));
+    if (!isMine(i)) {
+      if (m.cls === 'mistake' || m.cls === 'blunder') return true;
+      return alsoTheirs && (m.cls === 'brilliant' || m.cls === 'great' || m.cls === 'miss');
+    }
+    if (PAUSE_CLASSES.has(m.cls)) return true;
     const before = wdlAt(i);
     if (before && m.wdl) {
       const k = userSide(i) === 'white' ? 0 : 2;
@@ -452,14 +469,24 @@ export async function reviewView([idStr]: string[]): Promise<View> {
       miss: '😬 Missed chance',
       blunder: '💥 Blunder!',
     };
-    const title = titles[m.cls] ?? '📈 Turning point';
+    const theirTitles: Partial<Record<MoveClass, string>> = {
+      brilliant: `💎 Strong move by ${oppName(i)}`,
+      great: `🔥 Strong move by ${oppName(i)}`,
+      inaccuracy: '🎁 A small chance for you',
+      mistake: '🎁 A chance for you!',
+      blunder: '🎁 Big chance for you!',
+      miss: '😅 You got away with one',
+    };
+    const title = (mine ? titles[m.cls] : theirTitles[m.cls]) ?? '📈 Turning point';
     const who = mine ? 'You' : userSide(i) === 'white' ? rec!.white : rec!.black;
     const isError = ['inaccuracy', 'mistake', 'miss', 'blunder'].includes(m.cls);
-    const canPunish = isError && !mine && !new Chess(fens[i + 1]).isGameOver() && !!rec!.analysis![i + 1];
+    // an opponent's "miss" means they failed to punish YOU — there is nothing for you to punish
+    const canPunish = isError && m.cls !== 'miss' && !mine && !new Chess(fens[i + 1]).isGameOver() && !!rec!.analysis![i + 1];
     let tryBtn: HTMLElement | null = null;
-    if (isError && mine && m.best) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'better') }, '🎯 Play the better move');
+    if (mine && m.cls === 'miss') tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'punish') }, '🎯 Find the punishing move');
+    else if (isError && mine && m.best) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'better') }, '🎯 Play the better move');
     else if (canPunish) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i + 1, 'punish') }, '🎯 Punish it yourself');
-    else if (m.cls === 'brilliant' || m.cls === 'great' || !isError) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'find') }, '🎯 Play this move yourself');
+    else if (mine && (m.cls === 'brilliant' || m.cls === 'great' || !isError)) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'find') }, '🎯 Play this move yourself');
     const card = h(
       `div.coach-card.${m.cls}`,
       h('div.row.between', h('strong.coach-title', title), h('span.small.muted', `${who} · ${Math.floor(i / 2) + 1}${userSide(i) === 'black' ? '…' : '.'} ${rec!.sans[i]}`)),
@@ -540,7 +567,7 @@ export async function reviewView([idStr]: string[]): Promise<View> {
       'div.play-layout',
       h('div.board-col', wdlBar, h('div.board-with-bar', evalBar, board.el), graph, h('div.demo-ctrl', h('button.btn', { 'aria-label': 'Start', onclick: () => show(0) }, '⏮'), h('button.btn', { 'aria-label': 'Previous move', onclick: () => show(ply - 1) }, '◀'), autoBtn, h('button.btn', { 'aria-label': 'Next move', onclick: () => show(ply + 1) }, '▶'), h('button.btn', { 'aria-label': 'End', onclick: () => show(fens.length - 1) }, '⏭'), h('button.btn.ghost', { 'aria-label': 'Flip board', onclick: () => (board.flip(), renderEvalBar()) }, '⇅')),
         coachSlot,
-        h('label.toggle.small-toggle', h('input', { type: 'checkbox', onchange: (e: Event) => (onlyMine = (e.target as HTMLInputElement).checked) }), h('span', h('strong', 'Pause only at my moves'), h('small', 'Otherwise it also stops at the opponent’s big moments.')))),
+        h('label.toggle.small-toggle', h('input', { type: 'checkbox', onchange: (e: Event) => (alsoTheirs = (e.target as HTMLInputElement).checked) }), h('span', h('strong', 'Also stop at opponent’s strong moves'), h('small', 'By default it stops at your mistakes, your best moves and your chances.')))),
       h('div.side-col', progress, detail, moments, summary, moveList),
     ),
   );

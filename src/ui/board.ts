@@ -114,7 +114,8 @@ export class BoardView {
         'div.promo',
         { onclick: () => done(undefined) },
         h(
-          'div.promo-box',
+          // .cg-wrap scopes chessground's piece-image CSS to the picker too
+          'div.promo-box.cg-wrap',
           roles.map(([k, role]) =>
             h(
               'button.promo-piece',

@@ -157,9 +157,10 @@ cg-board square.hl-yellow { background-color: rgb(245 205 60 / 0.6); }
 .orientation-black .cg-wrap coords coord:nth-child(odd), .cg-wrap.orientation-black coords coord:nth-child(odd) { color: var(--board-light) !important; }
 
 .promo { position: absolute; inset: 0; z-index: 10; background: rgb(0 0 0 / 0.5); display: grid; place-items: center; }
+.board-wrap .promo-box.cg-wrap { width: auto; height: auto; }
 .promo-box { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: var(--surface); padding: 10px; border-radius: 14px; }
 .promo-piece { width: 64px; height: 64px; border: 0; border-radius: 10px; background: var(--surface-2); cursor: pointer; position: relative; }
-.promo-piece piece { position: absolute; inset: 4px; background-size: cover; display: block; }
+.promo .promo-piece piece { position: absolute; inset: 4px; width: auto; height: auto; transform: none; background-size: cover; display: block; }
 
 /* ------------------------------------------------ lesson */
 .lesson-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
@@ -343,3 +344,11 @@ cg-board square.hl-yellow { background-color: rgb(245 205 60 / 0.6); }
 .ply-slider { width: 100%; accent-color: var(--accent); margin: 8px 0; }
 .game-summary strong { font-size: 0.95rem; }
 .pill.src { margin-left: 6px; font-size: 0.7rem; font-weight: 600; }
+
+/* ------------------------------------------------ review: coach sections */
+.coach-sec { margin-top: 10px; padding-left: 10px; border-left: 3px solid var(--border); }
+.coach-sec-t { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.75; }
+.coach-sec .rich p { margin: 2px 0 0; }
+.coach-actions { margin-top: 12px; }
+.coach-more { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+.coach-more > summary { cursor: pointer; font-weight: 700; color: var(--accent); }
