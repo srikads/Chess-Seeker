@@ -64,8 +64,7 @@ export async function puzzlesView([themeParam]: string[] = []): Promise<View> {
   }
 
   function next() {
-    timers.forEach(clearTimeout);
-    timers = [];
+    clearTimers();
     engine.cancelAll();
     current = pick();
     explainBox.replaceChildren();
@@ -96,11 +95,12 @@ export async function puzzlesView([themeParam]: string[] = []): Promise<View> {
   }
 
   function autoPlay() {
-    if (!current) return;
+    if (!current || ply >= current.moves.length) return;
     const u = current.moves[ply];
     const mv = g.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] });
     ply++;
     board.playMove(g.fen(), mv.from, mv.to, !!mv.captured, solver);
+    board.arrows([]); // hints/explanations were for the previous position
   }
 
   function renderActions() {
@@ -139,6 +139,7 @@ export async function puzzlesView([themeParam]: string[] = []): Promise<View> {
     const uci = moveToUci(mv);
     if (uci === expected || g.isCheckmate()) {
       ply++;
+      board.arrows([]);
       playSound(mv.captured ? 'capture' : 'move');
       board.set(g.fen(), { lastMove: [mv.from, mv.to], orientation: solver, movable: null });
       if (ply >= current.moves.length || g.isCheckmate()) {
@@ -172,8 +173,15 @@ export async function puzzlesView([themeParam]: string[] = []): Promise<View> {
     renderActions();
   }
 
+  function clearTimers() {
+    timers.forEach(clearTimeout);
+    timers = [];
+  }
+
   function retry() {
     if (!current) return;
+    clearTimers();
+    board.arrows([]);
     const p = current;
     g = new Chess(p.fen);
     ply = 0;
@@ -185,6 +193,7 @@ export async function puzzlesView([themeParam]: string[] = []): Promise<View> {
 
   function showSolution() {
     if (!current) return;
+    clearTimers();
     if (!failed) void record(false);
     failed = true;
     const sans: string[] = [];
@@ -197,6 +206,7 @@ export async function puzzlesView([themeParam]: string[] = []): Promise<View> {
     solved = true;
     const last = g.history({ verbose: true }).pop();
     board.set(g.fen(), { orientation: solver, lastMove: last ? [last.from, last.to] : undefined });
+    board.arrows([]);
     status.replaceChildren(h('div.banner.info', `Solution: ${sans.join(' ')}`));
     renderActions();
   }
@@ -213,7 +223,9 @@ export async function puzzlesView([themeParam]: string[] = []): Promise<View> {
     const fen = g2.fen();
     const u = current.moves[i];
     explainBox.replaceChildren(h('div.hint', 'Analysing…'));
+    const p = current;
     const r = await engine.analyse(fen, { depth: 14 });
+    if (current !== p) return; // moved on to another puzzle meanwhile
     const pv = r.lines[0]?.pv[0] === u ? r.lines[0].pv : [u, ...current.moves.slice(i + 1)];
     board.arrows([arrow(u)]);
     explainBox.replaceChildren(h('div.hint', rich(`💡 ${explainBest(fen, u, pv)}`)));

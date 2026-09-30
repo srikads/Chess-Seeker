@@ -4,6 +4,7 @@ import type { Key } from '@lichess-org/chessground/types';
 import type { DrawShape } from '@lichess-org/chessground/draw';
 import { Chess, type Square } from 'chess.js';
 import { destsOf, isPromotion, turnColor } from '../chess/util';
+import type { Dangers } from '../chess/guards';
 import { settings } from '../store/settings';
 import type { Annotations } from '../lessons/types';
 import { h } from './dom';
@@ -20,6 +21,13 @@ export interface BoardOptions {
   onMove?: (m: UserMove) => void;
 }
 
+/** Red ✗ badge in the corner of a pinned piece's square. */
+const PIN_SVG =
+  '<g><circle cx="80" cy="20" r="15" fill="#e2463c" stroke="#fff" stroke-width="3"/><path d="M73 13 L87 27 M87 13 L73 27" stroke="#fff" stroke-width="5" stroke-linecap="round"/></g>';
+/** Big ✗ on a destination square that walks into mate. */
+const BAD_DEST_SVG =
+  '<g opacity="0.85"><circle cx="50" cy="50" r="22" fill="#e2463c"/><path d="M40 40 L60 60 M60 40 L40 60" stroke="#fff" stroke-width="7" stroke-linecap="round"/></g>';
+
 /** A chessground board bound to legal-move generation from chess.js. */
 export class BoardView {
   readonly el: HTMLElement;
@@ -27,6 +35,9 @@ export class BoardView {
   private fen = '';
   private onMove?: (m: UserMove) => void;
   private shapes: DrawShape[] = [];
+  /** engine/hint arrows on top of the lesson annotations */
+  private extra: DrawShape[] = [];
+  private danger: Dangers | null = null;
   private highlights = new Map<Key, string>();
 
   constructor(opts: BoardOptions = {}) {
@@ -37,13 +48,36 @@ export class BoardView {
     this.cg = Chessground(inner, {
       orientation: opts.orientation ?? 'white',
       coordinates: s.coordinates,
-      animation: { enabled: s.animation, duration: 200 },
+      animation: { enabled: s.animation, duration: 260 },
       highlight: { lastMove: true, check: true },
       movable: { free: false, showDests: true, color: undefined, events: { after: (o, d) => this.handleMove(o as Square, d as Square) } },
       premovable: { enabled: false },
       draggable: { enabled: true, showGhost: true },
       drawable: { enabled: true, visible: true },
+      events: { select: () => this.render() },
     });
+    // chessground has no "deselect" event: re-check the selection after every tap
+    this.el.addEventListener('pointerup', () => requestAnimationFrame(() => this.render()));
+  }
+
+  /** Show ✗ marks for pinned pieces and for moves that allow mate in one (null = off). */
+  setDangers(d: Dangers | null) {
+    this.danger = d;
+    this.render();
+  }
+
+  private dangerShapes(): DrawShape[] {
+    const d = this.danger;
+    // custom SVG shapes need a laid-out board (zero size → NaN coordinates)
+    if (!d || !this.el.isConnected || !this.el.clientWidth) return [];
+    const out: DrawShape[] = d.pinned.map((sq) => ({ orig: sq as Key, customSvg: { html: PIN_SVG } }));
+    const sel = this.cg.state.selected;
+    if (sel) for (const to of d.mateIn1.get(sel as Square) ?? []) out.push({ orig: to as Key, customSvg: { html: BAD_DEST_SVG } });
+    return out;
+  }
+
+  private render() {
+    this.cg.setAutoShapes([...this.shapes, ...this.extra, ...this.dangerShapes()]);
   }
 
   /** Set the position. `movable` = which colour the user may move (null = view only). */
@@ -83,11 +117,13 @@ export class BoardView {
     for (const hl of a?.highlights ?? []) this.highlights.set(hl.sq as Key, `hl-${hl.mark}`);
     this.shapes = (a?.arrows ?? []).map((ar) => ({ orig: ar.from as Key, dest: ar.to as Key, brush: ar.mark }));
     this.cg.set({ highlight: { custom: this.highlights } });
-    this.cg.setAutoShapes([...this.shapes, ...extra]);
+    this.extra = extra;
+    this.render();
   }
 
   arrows(shapes: DrawShape[]) {
-    this.cg.setAutoShapes([...this.shapes, ...shapes]);
+    this.extra = shapes;
+    this.render();
   }
 
   clearAnnotations() {
@@ -114,7 +150,8 @@ export class BoardView {
         'div.promo',
         { onclick: () => done(undefined) },
         h(
-          'div.promo-box',
+          // .cg-wrap scopes chessground's piece-image CSS to the picker too
+          'div.promo-box.cg-wrap',
           roles.map(([k, role]) =>
             h(
               'button.promo-piece',
