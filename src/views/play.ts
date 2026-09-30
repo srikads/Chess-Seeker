@@ -7,6 +7,7 @@ import { engine, scoreNum, winPct } from '../engine/engine';
 import { explainBest, explainMistake, currentThreats } from '../chess/explain';
 import { Clock, TIME_CONTROLS, tcById, type Side, type TimeControl } from '../chess/clock';
 import { capturedPieces, material } from '../chess/util';
+import { dangers } from '../chess/guards';
 import { settings, updateSettings } from '../store/settings';
 import { saveGame, kvGet, kvSet, type GameRecord } from '../store/db';
 import { trackStudy } from '../store/tracker';
@@ -18,6 +19,8 @@ interface GameConfig {
   tc: string;
   hints: boolean;
   blunderWarning: boolean;
+  /** ✗ marks on pinned pieces and mate-in-one moves (missing in games saved before it existed) */
+  dangerMarks?: boolean;
   pure: boolean;
 }
 
@@ -35,7 +38,7 @@ export async function playView(): Promise<View> {
   trackStudy(null);
   let saved = await kvGet<SavedGame | null>(RESUME_KEY, null);
   const s = settings();
-  const cfg: GameConfig = { bot: s.lastBot, color: s.lastColor === 'black' ? 'black' : 'white', tc: s.lastTimeControl, hints: s.hints, blunderWarning: s.blunderWarning, pure: false };
+  const cfg: GameConfig = { bot: s.lastBot, color: s.lastColor === 'black' ? 'black' : 'white', tc: s.lastTimeControl, hints: s.hints, blunderWarning: s.blunderWarning, dangerMarks: s.dangerMarks, pure: false };
   let colorChoice: 'white' | 'black' | 'random' = s.lastColor;
   const root = h('div.page.play-setup');
 
@@ -66,12 +69,12 @@ export async function playView(): Promise<View> {
         h(`button.chip${colorChoice === c ? '.on' : ''}`, { onclick: () => ((colorChoice = c), renderSetup()) }, { white: '⚪ White', random: '🎲 Random', black: '⚫ Black' }[c]),
       ),
     );
-    const toggle = (label: string, key: 'hints' | 'blunderWarning' | 'pure', desc: string) =>
+    const toggle = (label: string, key: 'hints' | 'blunderWarning' | 'dangerMarks' | 'pure', desc: string) =>
       h(
         'label.toggle',
         h('input', {
           type: 'checkbox',
-          checked: cfg[key],
+          checked: !!cfg[key],
           onchange: (e: Event) => {
             cfg[key] = (e.target as HTMLInputElement).checked;
             renderSetup();
@@ -94,12 +97,12 @@ export async function playView(): Promise<View> {
       h('h3', 'Your colour'),
       colorChips,
       h('h3', 'Coach'),
-      h('div.toggles', toggle('Hints on demand', 'hints', 'Ask for the best move with a plain-English reason.'), toggle('Blunder warning', 'blunderWarning', '"Are you sure?" before you hang a piece or allow mate.'), toggle('Pure mode', 'pure', 'No help at all — a real game.')),
+      h('div.toggles', toggle('Hints on demand', 'hints', 'Ask for the best move with a plain-English reason.'), toggle('Blunder warning', 'blunderWarning', '"Are you sure?" before you hang a piece or allow mate.'), toggle('Danger marks', 'dangerMarks', '✗ on pieces pinned to your king, and on squares where a move would allow mate.'), toggle('Pure mode', 'pure', 'No help at all — a real game.')),
       h('button.btn.primary.big', {
         onclick: () => {
           const color = colorChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : colorChoice;
-          updateSettings({ lastBot: cfg.bot, lastTimeControl: cfg.tc, lastColor: colorChoice, hints: cfg.hints, blunderWarning: cfg.blunderWarning });
-          startGame({ ...cfg, color, hints: cfg.hints && !cfg.pure, blunderWarning: cfg.blunderWarning && !cfg.pure });
+          updateSettings({ lastBot: cfg.bot, lastTimeControl: cfg.tc, lastColor: colorChoice, hints: cfg.hints, blunderWarning: cfg.blunderWarning, dangerMarks: !!cfg.dangerMarks });
+          startGame({ ...cfg, color, hints: cfg.hints && !cfg.pure, blunderWarning: cfg.blunderWarning && !cfg.pure, dangerMarks: !!cfg.dangerMarks && !cfg.pure });
         },
       }, 'Start game'),
     );
@@ -255,10 +258,20 @@ class GameScreen {
     void kvSet(RESUME_KEY, { cfg: this.cfg, sans: this.g.history(), times: this.times, clock: { ...this.clock.remaining }, hintsUsed: this.hintsUsed } satisfies SavedGame);
   }
 
+  /** Compute ✗ marks for the current position (after paint, so the board never waits on it). */
+  private showDangers() {
+    if (!this.cfg.dangerMarks) return;
+    const fen = this.g.fen();
+    setTimeout(() => {
+      if (!this.over && this.g.fen() === fen && this.sideToMove() === this.cfg.color) this.board.setDangers(dangers(fen));
+    }, 0);
+  }
+
   private startUserTurn() {
     this.turnStarted = performance.now();
     this.clock.start(this.cfg.color);
     this.sync();
+    this.showDangers();
     if (this.cfg.blunderWarning) {
       const fen = this.g.fen();
       this.preEval = engine.analyse(fen, { movetime: 450 }).then((r) => (r.lines[0] ? scoreNum(r.lines[0]) : 0));
@@ -273,6 +286,7 @@ class GameScreen {
     if (this.over || this.busy) return;
     const before = this.g.fen();
     this.board.arrows([]); // a hint is only for the position it was asked in
+    this.board.setDangers(null);
     let mv: Move;
     try {
       mv = this.g.move(m);
@@ -303,6 +317,7 @@ class GameScreen {
           this.g.undo();
           this.busy = false;
           this.sync();
+          this.showDangers();
           this.els.status.replaceChildren(h('div.banner.info', 'Taken back. Look again: checks, captures, threats.'));
           return;
         }
@@ -423,6 +438,7 @@ class GameScreen {
     this.over = true;
     this.clock.stop();
     engine.cancelAll();
+    this.board.setDangers(null);
     this.sync();
     await kvSet(RESUME_KEY, null);
     const userWon = (result === '1-0' && this.cfg.color === 'white') || (result === '0-1' && this.cfg.color === 'black');
