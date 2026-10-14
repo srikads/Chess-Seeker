@@ -69,7 +69,7 @@ describe('coach feedback line', () => {
   it('praises a good move with its idea', () => {
     const m = new Chess().move('Nf3');
     const t = feedbackLine({ cls: 'best', fenBefore: START, move: m, bestSan: 'Nf3', replyPv: [], replyMate: null });
-    expect(t).toBe('Best move! **Nf3** develops the knight toward the centre.');
+    expect(t).toBe('Best move! **Nf3** develops the knight.');
   });
   it('explains a blunder in one idea and names the better move', () => {
     const fen = 'rnbqkbnr/p1pppppp/8/1p6/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3';
