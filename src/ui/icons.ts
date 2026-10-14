@@ -53,6 +53,11 @@ const PATHS = {
   bot: '<path d="M11 2h2v2.1A7 7 0 0 1 19 11v6a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-6a7 7 0 0 1 6-6.9zm-2 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M2 12h2v4H2zm18 0h2v4h-2z" fill="currentColor"/>',
   chat: '<path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2" fill="currentColor"/>',
   volume: '<path d="M3 9h4l5-4.5v15L7 15H3zm12.5-1.6a6 6 0 0 1 0 9.2l-1.4-1.4a4 4 0 0 0 0-6.4z" fill="currentColor"/>',
+  calendar: '<path d="M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2zM5 9v10h14V9zm2 2h3v3H7z" fill="currentColor"/>',
+  sliders: '<path d="M4 6h9.2a2.5 2.5 0 0 1 4.6 0H20v2h-2.2a2.5 2.5 0 0 1-4.6 0H4zm0 10h2.2a2.5 2.5 0 0 1 4.6 0H20v2h-9.2a2.5 2.5 0 0 1-4.6 0H4z" fill="currentColor"/>',
+  star: '<path d="m12 2.5 2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.2l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" fill="currentColor"/>',
+  knight: '<path d="M6 21h13v-2.2H6zm1.6-3.6h10.6c.4-4.4-.6-8-3.4-10.6l.6-2.8-2.4 1.2L11.6 3l-.8 2.6C7.6 7 5.8 9.6 5 12.6l2.3 1.4 3.9-2c.2 1.3-.4 2.2-1.6 3.1-1 .7-1.7 1.4-2 2.3" fill="currentColor"/>',
+  grid: '<path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z" fill="currentColor" opacity=".35"/><path d="M3 3h8v8H3zm10 10h8v8h-8z" fill="currentColor"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;
