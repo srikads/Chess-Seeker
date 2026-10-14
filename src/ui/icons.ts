@@ -53,6 +53,16 @@ const PATHS = {
   bot: '<path d="M11 2h2v2.1A7 7 0 0 1 19 11v6a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-6a7 7 0 0 1 6-6.9zm-2 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M2 12h2v4H2zm18 0h2v4h-2z" fill="currentColor"/>',
   chat: '<path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2" fill="currentColor"/>',
   volume: '<path d="M3 9h4l5-4.5v15L7 15H3zm12.5-1.6a6 6 0 0 1 0 9.2l-1.4-1.4a4 4 0 0 0 0-6.4z" fill="currentColor"/>',
+  download: '<path d="M11 4h2v8.2l3.6-3.6L18 10l-6 6-6-6 1.4-1.4 3.6 3.6zm-6 14h14v2H5z" fill="currentColor"/>',
+  trash: '<path d="M9 3h6l1 1.5h4V6.5H4V4.5h4zM5.5 8h13l-1 13h-11zm4 2.5v8h1.6v-8zm3.4 0v8h1.6v-8z" fill="currentColor"/>',
+  board: '<path d="M3 3h18v18H3zm2 2v3.5h3.5V5zm7 0v3.5h3.5V5zM8.5 8.5V12H12V8.5zm7 0V12H19V8.5zM5 12v3.5h3.5V12zm7 0v3.5h3.5V12zm-3.5 3.5V19H12v-3.5zm7 0V19H19v-3.5z" fill="currentColor" fill-rule="evenodd"/>',
+  pawn: '<path d="M12 2.5a3.6 3.6 0 0 1 2.3 6.4c1.3.6 2 1.6 2 2.6h-2.1c.3 2.5 1.6 4.5 3.3 6.2V20H6.5v-2.3c1.7-1.7 3-3.7 3.3-6.2H7.7c0-1 .7-2 2-2.6A3.6 3.6 0 0 1 12 2.5M5 20.5h14V22H5z" fill="currentColor"/>',
+  swords: '<path d="M3 3h4.5l8 8-1.4 1.4-1.1-1.1-2.8 2.8 1.1 1.1-1.4 1.4-2.1-2.1-2.5 2.5L6 17.7l-2.3 2.3-1.4-1.4L4.6 16.3 3.3 15l2.5-2.5-2.1-2.1 1.4-1.4 1.1 1.1 2.8-2.8L3 2.3zm18 0v4.5l-5.6 5.6-4.5-4.5L16.5 3zm-3.3 11.6 1.4 1.4-1.4 1.4 2.3 2.3-1.4 1.4-2.3-2.3-1.4 1.4-1.4-1.4z" fill="currentColor"/>',
+  king: '<path d="M11 2h2v2h2v2h-2v2.2a4.5 4.5 0 0 1 3.8 6.3L15.6 17H8.4l-1.2-2.5A4.5 4.5 0 0 1 11 8.2V6H9V4h2zM7 18.5h10V22H7z" fill="currentColor"/>',
+  hourglass: '<path d="M6 2h12v2h-1v3.5L13.4 12l3.6 4.5V20h1v2H6v-2h1v-3.5l3.6-4.5L7 7.5V4H6zm3 2v2.8l3 3.7 3-3.7V4zm3 9.5-3 3.7V20h6v-2.8z" fill="currentColor"/>',
+  lock: '<path d="M12 2a5 5 0 0 1 5 5v3h2v12H5V10h2V7a5 5 0 0 1 5-5m0 2.2A2.8 2.8 0 0 0 9.2 7v3h5.6V7A2.8 2.8 0 0 0 12 4.2m0 9.3a1.8 1.8 0 0 0-1 3.3V19h2v-2.2a1.8 1.8 0 0 0-1-3.3" fill="currentColor"/>',
+  wifi_off: '<path d="M2.8 2 22 21.2 20.6 22.6l-6.4-6.4A3 3 0 1 0 12 21a3 3 0 0 0 2.2-4.8l-.1-.1-2.8-2.8a6.9 6.9 0 0 0-4.4 2L5.4 13.8a9.5 9.5 0 0 1 3.4-2.1L6.4 9.3a13 13 0 0 0-3.5 2.5L1.4 10.3c1-1 2.2-1.9 3.5-2.6L1.4 3.4zM12 4c4.3 0 8.2 1.7 11 4.4L21.6 10a13.5 13.5 0 0 0-11.1-3.8L8.2 3.9C9.4 3.6 10.7 4 12 4m4 8.7.2.1 1.4-1.6a9.4 9.4 0 0 0-3.4-1.9l2.2 2.3z" fill="currentColor"/>',
+  star: '<path d="m12 2.5 2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.2 6.1 20.5l1.3-6.6-4.9-4.6 6.6-.8z" fill="currentColor"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;
