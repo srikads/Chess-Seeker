@@ -64,6 +64,10 @@ const PATHS = {
   wifi_off: '<path d="M2.8 2 22 21.2 20.6 22.6l-6.4-6.4A3 3 0 1 0 12 21a3 3 0 0 0 2.2-4.8l-.1-.1-2.8-2.8a6.9 6.9 0 0 0-4.4 2L5.4 13.8a9.5 9.5 0 0 1 3.4-2.1L6.4 9.3a13 13 0 0 0-3.5 2.5L1.4 10.3c1-1 2.2-1.9 3.5-2.6L1.4 3.4zM12 4c4.3 0 8.2 1.7 11 4.4L21.6 10a13.5 13.5 0 0 0-11.1-3.8L8.2 3.9C9.4 3.6 10.7 4 12 4m4 8.7.2.1 1.4-1.6a9.4 9.4 0 0 0-3.4-1.9l2.2 2.3z" fill="currentColor"/>',
   star: '<path d="m12 2.5 2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.2 6.1 20.5l1.3-6.6-4.9-4.6 6.6-.8z" fill="currentColor"/>',
   move: '<path d="M12 2 8.5 5.5H11V11H5.5V8.5L2 12l3.5 3.5V13H11v5.5H8.5L12 22l3.5-3.5H13V13h5.5v2.5L22 12l-3.5-3.5V11H13V5.5h2.5z" fill="currentColor"/>',
+  calendar: '<path d="M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2zM5 9v10h14V9zm2 2h3v3H7z" fill="currentColor"/>',
+  sliders: '<path d="M4 6h9.2a2.5 2.5 0 0 1 4.6 0H20v2h-2.2a2.5 2.5 0 0 1-4.6 0H4zm0 10h2.2a2.5 2.5 0 0 1 4.6 0H20v2h-9.2a2.5 2.5 0 0 1-4.6 0H4z" fill="currentColor"/>',
+  knight: '<path d="M6 21h13v-2.2H6zm1.6-3.6h10.6c.4-4.4-.6-8-3.4-10.6l.6-2.8-2.4 1.2L11.6 3l-.8 2.6C7.6 7 5.8 9.6 5 12.6l2.3 1.4 3.9-2c.2 1.3-.4 2.2-1.6 3.1-1 .7-1.7 1.4-2 2.3" fill="currentColor"/>',
+  grid: '<path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z" fill="currentColor" opacity=".35"/><path d="M3 3h8v8H3zm10 10h8v8h-8z" fill="currentColor"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;
