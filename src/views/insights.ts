@@ -1,6 +1,6 @@
 // Insights: personal stats computed on this device (chess.com Diamond "Insights"-style), plus a coach's top 3.
 import { h } from '../ui/dom';
-import { icon, classBadge, CLASS_STYLE, type IconName } from '../ui/icons';
+import { icon, classBadge, type IconName } from '../ui/icons';
 import { mascot } from '../ui/coach';
 import { pageHeader } from '../ui/widgets';
 import { donut, lineChart, barList, stackBar, columns } from '../ui/charts';
@@ -16,6 +16,7 @@ import '../styles/insights.css';
 
 const themeLabel = (t: string) => PUZZLE_THEMES[t] ?? t.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 const fmtDate = (d: number) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const ERROR_PLURAL = { blunder: 'blunders', miss: 'misses', mistake: 'mistakes', inaccuracy: 'inaccuracies' } as const;
 const PHASE_LABEL = { opening: 'Opening', middlegame: 'Middlegame', endgame: 'Endgame' } as const;
 
 export async function insightsView(): Promise<View> {
@@ -184,7 +185,7 @@ function mistakesSection(ins: Insights): HTMLElement {
       'div',
       h(
         'div.err-tiles',
-        [...ERROR_CLASSES].reverse().map((c) => h('div.err-tile', classBadge(c), h('strong', String(ins.avgErrors[c])), h('small', `${CLASS_STYLE[c].label.toLowerCase()}s`))),
+        [...ERROR_CLASSES].reverse().map((c) => h('div.err-tile', classBadge(c), h('strong', String(ins.avgErrors[c])), h('small', ERROR_PLURAL[c]))),
       ),
       recent.length >= 2
         ? columns(

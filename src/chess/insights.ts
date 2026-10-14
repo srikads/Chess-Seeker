@@ -464,8 +464,8 @@ export function topAdvice(ins: Insights, themeLabel: (t: string) => string = (t)
   if (allowed && allowed.count >= 2) {
     out.push({
       id: `allowed-${allowed.id}`,
-      title: `Watch out for the ${allowed.label.toLowerCase()}`,
-      text: `${allowed.count} times your opponent could hit you with a ${allowed.label.toLowerCase()} after a mistake.`,
+      title: `Watch out for: ${allowed.label}`,
+      text: `After ${allowed.count} of your mistakes, your opponent had this tactic ready. Learn to see it coming.`,
       href: `/lesson/${allowed.lesson}`,
       cta: 'Learn the pattern',
       kind: 'lesson',
@@ -477,8 +477,8 @@ export function topAdvice(ins: Insights, themeLabel: (t: string) => string = (t)
     const theme = MOTIF_THEME[missed.id];
     out.push({
       id: `missed-${missed.id}`,
-      title: `Spot the ${missed.label.toLowerCase()}`,
-      text: `You missed a winning ${missed.label.toLowerCase()} ${missed.count} times. Puzzles train your eye for it.`,
+      title: `Look for: ${missed.label}`,
+      text: `You missed this winning idea ${missed.count} times. Puzzles train your eye for it.`,
       href: theme ? `/puzzles/${theme}` : `/lesson/${missed.lesson}`,
       cta: theme ? `${themeLabel(theme)} puzzles` : 'Learn the pattern',
       kind: theme ? 'puzzles' : 'lesson',
