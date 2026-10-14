@@ -7,6 +7,7 @@ import { engine, scoreNum, winPct } from '../engine/engine';
 import { explainBest, explainMistake, currentThreats } from '../chess/explain';
 import { Clock, TIME_CONTROLS, tcById, type Side, type TimeControl } from '../chess/clock';
 import { capturedPieces, material } from '../chess/util';
+import { dangers } from '../chess/guards';
 import { settings, updateSettings } from '../store/settings';
 import { saveGame, kvGet, kvSet, type GameRecord } from '../store/db';
 import { trackStudy } from '../store/tracker';
@@ -18,6 +19,8 @@ interface GameConfig {
   tc: string;
   hints: boolean;
   blunderWarning: boolean;
+  /** ✗ marks on pinned pieces and mate-in-one moves (missing in games saved before it existed) */
+  dangerMarks?: boolean;
   pure: boolean;
 }
 
@@ -33,13 +36,14 @@ const RESUME_KEY = 'currentGame';
 
 export async function playView(): Promise<View> {
   trackStudy(null);
-  const saved = await kvGet<SavedGame | null>(RESUME_KEY, null);
+  let saved = await kvGet<SavedGame | null>(RESUME_KEY, null);
   const s = settings();
-  const cfg: GameConfig = { bot: s.lastBot, color: s.lastColor === 'black' ? 'black' : 'white', tc: s.lastTimeControl, hints: s.hints, blunderWarning: s.blunderWarning, pure: false };
+  const cfg: GameConfig = { bot: s.lastBot, color: s.lastColor === 'black' ? 'black' : 'white', tc: s.lastTimeControl, hints: s.hints, blunderWarning: s.blunderWarning, dangerMarks: s.dangerMarks, pure: false };
   let colorChoice: 'white' | 'black' | 'random' = s.lastColor;
   const root = h('div.page.play-setup');
 
   const renderSetup = () => {
+    const resume = saved;
     const botGrid = h(
       'div.bot-grid',
       BOTS.map((b) =>
@@ -65,12 +69,12 @@ export async function playView(): Promise<View> {
         h(`button.chip${colorChoice === c ? '.on' : ''}`, { onclick: () => ((colorChoice = c), renderSetup()) }, { white: '⚪ White', random: '🎲 Random', black: '⚫ Black' }[c]),
       ),
     );
-    const toggle = (label: string, key: 'hints' | 'blunderWarning' | 'pure', desc: string) =>
+    const toggle = (label: string, key: 'hints' | 'blunderWarning' | 'dangerMarks' | 'pure', desc: string) =>
       h(
         'label.toggle',
         h('input', {
           type: 'checkbox',
-          checked: cfg[key],
+          checked: !!cfg[key],
           onchange: (e: Event) => {
             cfg[key] = (e.target as HTMLInputElement).checked;
             renderSetup();
@@ -83,7 +87,7 @@ export async function playView(): Promise<View> {
     setChildren(
       root,
       h('h1', 'Play'),
-      saved ? h('div.card.next-up', h('div.eyebrow', 'Game in progress'), h('p', `vs ${BOTS[saved.cfg.bot].name} · ${saved.sans.length} moves played`), h('div.row', h('button.btn.primary', { onclick: () => startGame(saved.cfg, saved) }, 'Resume ›'), h('button.btn.ghost', { onclick: async () => (await kvSet(RESUME_KEY, null), go('/play')) }, 'Abandon'))) : null,
+      resume ? h('div.card.next-up', h('div.eyebrow', 'Game in progress'), h('p', `vs ${BOTS[resume.cfg.bot].name} · ${resume.sans.length} moves played`), h('div.row', h('button.btn.primary', { onclick: () => startGame(resume.cfg, resume) }, 'Resume ›'), h('button.btn.ghost', { onclick: async () => (await kvSet(RESUME_KEY, null), go('/play')) }, 'Abandon'))) : null,
       h('h3', 'Opponent'),
       botGrid,
       h('div.card.bot-detail', h('span.avatar.big', bot.avatar), h('div', h('strong', `${bot.name} (${bot.elo})`), h('p.small', bot.blurb))),
@@ -93,12 +97,12 @@ export async function playView(): Promise<View> {
       h('h3', 'Your colour'),
       colorChips,
       h('h3', 'Coach'),
-      h('div.toggles', toggle('Hints on demand', 'hints', 'Ask for the best move with a plain-English reason.'), toggle('Blunder warning', 'blunderWarning', '"Are you sure?" before you hang a piece or allow mate.'), toggle('Pure mode', 'pure', 'No help at all — a real game.')),
+      h('div.toggles', toggle('Hints on demand', 'hints', 'Ask for the best move with a plain-English reason.'), toggle('Blunder warning', 'blunderWarning', '"Are you sure?" before you hang a piece or allow mate.'), toggle('Danger marks', 'dangerMarks', '✗ on pieces pinned to your king, and on squares where a move would allow mate.'), toggle('Pure mode', 'pure', 'No help at all — a real game.')),
       h('button.btn.primary.big', {
         onclick: () => {
           const color = colorChoice === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : colorChoice;
-          updateSettings({ lastBot: cfg.bot, lastTimeControl: cfg.tc, lastColor: colorChoice, hints: cfg.hints, blunderWarning: cfg.blunderWarning });
-          startGame({ ...cfg, color, hints: cfg.hints && !cfg.pure, blunderWarning: cfg.blunderWarning && !cfg.pure });
+          updateSettings({ lastBot: cfg.bot, lastTimeControl: cfg.tc, lastColor: colorChoice, hints: cfg.hints, blunderWarning: cfg.blunderWarning, dangerMarks: !!cfg.dangerMarks });
+          startGame({ ...cfg, color, hints: cfg.hints && !cfg.pure, blunderWarning: cfg.blunderWarning && !cfg.pure, dangerMarks: !!cfg.dangerMarks && !cfg.pure });
         },
       }, 'Start game'),
     );
@@ -107,9 +111,11 @@ export async function playView(): Promise<View> {
   let game: GameScreen | null = null;
   const startGame = (c: GameConfig, resume?: SavedGame) => {
     game?.destroy();
-    game = new GameScreen(c, resume, () => {
+    saved = null; // the new game replaces any saved one
+    game = new GameScreen(c, resume, async () => {
       game?.destroy();
       game = null;
+      saved = await kvGet<SavedGame | null>(RESUME_KEY, null);
       renderSetup();
     });
     root.replaceChildren(game.el);
@@ -134,6 +140,9 @@ class GameScreen {
   private busy = false;
   private preEval: Promise<number> | null = null;
   private viewPly: number | null = null;
+  private topBar: HTMLElement;
+  private bottomBar: HTMLElement;
+  private boardCol: HTMLElement;
   private els = {
     topName: h('div.player-name'),
     topClock: h('div.clock'),
@@ -159,13 +168,14 @@ class GameScreen {
     const actions = h(
       'div.row.wrap.actions',
       cfg.hints ? h('button.btn', { onclick: () => void this.hint() }, '💡 Hint') : null,
-      h('button.btn.ghost', { onclick: () => this.board.flip() }, '⇅ Flip'),
+      h('button.btn.ghost', { onclick: () => this.flip() }, '⇅ Flip'),
       h('button.btn.ghost', { onclick: () => void this.offerDraw() }, '½ Draw'),
       h('button.btn.ghost.danger', { onclick: () => void this.resign() }, '⚑ Resign'),
     );
-    const top = h('div.player-bar', h('div', this.els.topName, this.els.topCap), this.els.topClock);
-    const bottom = h('div.player-bar', h('div', this.els.botName, this.els.botCap), this.els.botClock);
-    this.el = h('div.game', h('div.play-layout', h('div.board-col', top, this.board.el, bottom), h('div.side-col', this.els.status, this.els.moves, actions, this.els.coach)));
+    this.topBar = h('div.player-bar', h('div', this.els.topName, this.els.topCap), this.els.topClock);
+    this.bottomBar = h('div.player-bar', h('div', this.els.botName, this.els.botCap), this.els.botClock);
+    this.boardCol = h('div.board-col', this.topBar, this.board.el, this.bottomBar);
+    this.el = h('div.game', h('div.play-layout', this.boardCol, h('div.side-col', this.els.status, this.els.moves, actions, this.els.coach)));
     this.els.topName.textContent = `${this.bot.avatar} ${this.bot.name} (${this.bot.elo})`;
     this.els.botName.textContent = 'You';
     this.renderCoach();
@@ -174,6 +184,13 @@ class GameScreen {
     if (this.g.isGameOver()) return;
     if (this.sideToMove() === cfg.color) this.startUserTurn();
     else void this.botTurn();
+  }
+
+  /** Flip the board and keep each player's name and clock next to their own pieces. */
+  private flip() {
+    this.board.flip();
+    const flipped = this.board.cg.state.orientation !== this.cfg.color;
+    this.boardCol.replaceChildren(flipped ? this.bottomBar : this.topBar, this.board.el, flipped ? this.topBar : this.bottomBar);
   }
 
   private sideToMove(): Side {
@@ -241,10 +258,20 @@ class GameScreen {
     void kvSet(RESUME_KEY, { cfg: this.cfg, sans: this.g.history(), times: this.times, clock: { ...this.clock.remaining }, hintsUsed: this.hintsUsed } satisfies SavedGame);
   }
 
+  /** Compute ✗ marks for the current position (after paint, so the board never waits on it). */
+  private showDangers() {
+    if (!this.cfg.dangerMarks) return;
+    const fen = this.g.fen();
+    setTimeout(() => {
+      if (!this.over && this.g.fen() === fen && this.sideToMove() === this.cfg.color) this.board.setDangers(dangers(fen));
+    }, 0);
+  }
+
   private startUserTurn() {
     this.turnStarted = performance.now();
     this.clock.start(this.cfg.color);
     this.sync();
+    this.showDangers();
     if (this.cfg.blunderWarning) {
       const fen = this.g.fen();
       this.preEval = engine.analyse(fen, { movetime: 450 }).then((r) => (r.lines[0] ? scoreNum(r.lines[0]) : 0));
@@ -258,6 +285,8 @@ class GameScreen {
   private async userMove(m: UserMove) {
     if (this.over || this.busy) return;
     const before = this.g.fen();
+    this.board.arrows([]); // a hint is only for the position it was asked in
+    this.board.setDangers(null);
     let mv: Move;
     try {
       mv = this.g.move(m);
@@ -273,7 +302,8 @@ class GameScreen {
       const bestBefore = await this.preEval;
       const r = await engine.analyse(this.g.fen(), { movetime: 400 });
       if (this.over) return;
-      const after = r.lines[0] ? -scoreNum(r.lines[0]) : bestBefore;
+      // stalemate / draw leaves no engine line: score it as 0, not "unchanged"
+      const after = this.g.isDraw() ? 0 : r.lines[0] ? -scoreNum(r.lines[0]) : bestBefore;
       const drop = winPct(bestBefore) - winPct(after);
       if (drop >= 18 && after < 300) {
         const why = explainMistake(before, mv, r.lines[0]?.pv ?? [], r.lines[0]?.mate ?? null);
@@ -287,6 +317,7 @@ class GameScreen {
           this.g.undo();
           this.busy = false;
           this.sync();
+          this.showDangers();
           this.els.status.replaceChildren(h('div.banner.info', 'Taken back. Look again: checks, captures, threats.'));
           return;
         }
@@ -407,6 +438,7 @@ class GameScreen {
     this.over = true;
     this.clock.stop();
     engine.cancelAll();
+    this.board.setDangers(null);
     this.sync();
     await kvSet(RESUME_KEY, null);
     const userWon = (result === '1-0' && this.cfg.color === 'white') || (result === '0-1' && this.cfg.color === 'black');

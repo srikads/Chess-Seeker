@@ -4,7 +4,7 @@ import { getLessonProgress, studySince, listGames, kvGet, getPuzzleAttempts, typ
 import { settings, type Bucket } from '../store/settings';
 import { trackStudy } from '../store/tracker';
 import { isLongTimeControl } from '../chess/pgn';
-import { canInstall, onInstallable, promptInstall } from '../pwa';
+import { canInstall, onInstallChange, promptInstall } from '../pwa';
 import { nextLesson } from './learn';
 import type { View } from '../router';
 
@@ -57,8 +57,9 @@ export async function homeView(): Promise<View> {
 
   const installBtn = h('button.btn.primary', { onclick: () => void promptInstall() }, '⬇ Install app');
   const installCard = h('div.card.install', h('div.grow', h('strong', 'Install Chess Seeker'), h('small', 'Add to your home screen — works fully offline.')), installBtn);
-  installCard.hidden = !canInstall();
-  onInstallable(() => (installCard.hidden = false));
+  const syncInstall = () => (installCard.hidden = !canInstall());
+  syncInstall();
+  const stopInstallSync = onInstallChange(syncInstall);
 
   const lessonsDone = ALL_LESSONS.filter((l) => progress.get(l.id)?.completed).length;
   const el = h(
@@ -90,7 +91,7 @@ export async function homeView(): Promise<View> {
     ),
     next ? h('a.card.next-up', { href: `#/lesson/${next.id}` }, h('div.eyebrow', 'Continue learning'), h('h3', next.title), h('p.small', next.summary)) : null,
   );
-  return { el };
+  return { el, destroy: () => void stopInstallSync() };
 }
 
 function planItem(icon: string, title: string, sub: string, href: string) {

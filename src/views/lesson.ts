@@ -88,6 +88,7 @@ class LessonPlayer {
     this.renderDots();
     this.onBoardMove = null;
     this.board.clearAnnotations();
+    this.board.el.classList.remove('dim'); // a position-less quiz dims the board
     if (this.idx >= this.lesson.steps.length) return this.renderSummary();
     const step = this.lesson.steps[this.idx];
     const head = h('div.step-kind', stepLabel(step), step.title ? h('span', ` · ${step.title}`) : null);
@@ -158,6 +159,8 @@ class LessonPlayer {
     let hintsShown = 0;
     let mistakes = 0;
     let done = false;
+    /** Stockfish is judging an alternative move; the board position is provisional */
+    let checking = false;
     const status = h('div.try-status');
     const hintBox = h('div.hints');
     const after = h('div');
@@ -188,8 +191,8 @@ class LessonPlayer {
       );
     };
 
-    this.onBoardMove = async (m: UserMove) => {
-      if (done) return;
+    const handler = async (m: UserMove) => {
+      if (done || checking) return;
       const before = g.fen();
       let mv;
       try {
@@ -202,6 +205,7 @@ class LessonPlayer {
       if (ok) {
         playSound(mv.captured ? 'capture' : g.inCheck() ? 'check' : 'move');
         ply++;
+        this.board.arrows([]); // drop a "show first move" arrow
         const altFirst = ply === 1 && mv.san !== expected;
         if (ply >= step.solution.length || g.isCheckmate() || altFirst) return finish(altFirst ? `**${mv.san}** works too!` : undefined);
         this.board.set(g.fen(), { lastMove: [mv.from, mv.to], movable: null, orientation });
@@ -211,7 +215,10 @@ class LessonPlayer {
       // Not the book move: ask Stockfish whether it's just as good.
       this.board.set(g.fen(), { lastMove: [mv.from, mv.to], movable: null, orientation });
       status.replaceChildren(h('div.banner.info', 'Checking your move…'));
+      checking = true;
       const verdict = await judgeAlternative(before, moveToUci(mv), step.solution[ply]);
+      checking = false;
+      if (this.onBoardMove !== handler || done) return; // the learner left this step meanwhile
       if (verdict === 'equal' && step.solution.length - ply === 1) {
         return finish(`**${mv.san}** is just as strong — nicely found! (The lesson move was ${expected}.)`);
       }
@@ -222,9 +229,11 @@ class LessonPlayer {
       status.replaceChildren(h(`div.banner.${verdict === 'equal' ? 'info' : 'bad'}`, msg));
       timers.push(window.setTimeout(() => sync(), 450));
     };
+    this.onBoardMove = handler;
 
     const hintBtn = h('button.btn', {
       onclick: () => {
+        if (checking) return;
         if (hintsShown < step.hints.length) {
           hintBox.append(h('div.hint', `💡 ${step.hints[hintsShown]}`));
           hintsShown++;
@@ -238,6 +247,7 @@ class LessonPlayer {
     }, 'Hint');
     const solBtn = h('button.btn.ghost', {
       onclick: () => {
+        if (checking) return;
         // Play the rest of the solution with explanations.
         hintsShown += 10;
         while (ply < step.solution.length) {

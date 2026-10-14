@@ -7,6 +7,7 @@ import { destsOf, isPromotion, turnColor } from '../chess/util';
 import { settings } from '../store/settings';
 import type { Annotations } from '../lessons/types';
 import type { MoveClass } from '../chess/classify';
+import type { Dangers } from '../chess/guards';
 import { h } from './dom';
 import { classBadge } from './icons';
 import { playSound } from './sound';
@@ -33,6 +34,13 @@ export const BRUSH: Record<string, string> = {
   paleRed: 'rgb(235 80 60 / 0.45)',
   paleGrey: 'rgb(140 140 140 / 0.5)',
 };
+
+/** Red ✗ badge in the corner of a pinned piece's square. */
+const PIN_SVG =
+  '<g><circle cx="80" cy="20" r="15" fill="#e2463c" stroke="#fff" stroke-width="3"/><path d="M73 13 L87 27 M87 13 L73 27" stroke="#fff" stroke-width="5" stroke-linecap="round"/></g>';
+/** Big ✗ on a destination square that walks into mate. */
+const BAD_DEST_SVG =
+  '<g opacity="0.85"><circle cx="50" cy="50" r="22" fill="#e2463c"/><path d="M40 40 L60 60 M60 40 L40 60" stroke="#fff" stroke-width="7" stroke-linecap="round"/></g>';
 
 const NS = 'http://www.w3.org/2000/svg';
 const shapeKey = (s: DrawShape) => `${s.orig}${s.dest ?? ''}${s.brush ?? ''}`;
@@ -68,6 +76,7 @@ export class BoardView {
   private badgeEl: HTMLElement | null = null;
   private badgeAt: { sq: string; cls: MoveClass } | null = null;
   private flashEls: HTMLElement[] = [];
+  private danger: Dangers | null = null;
 
   constructor(opts: BoardOptions = {}) {
     this.onMove = opts.onMove;
@@ -81,13 +90,36 @@ export class BoardView {
     this.cg = Chessground(inner, {
       orientation: opts.orientation ?? 'white',
       coordinates: s.coordinates,
-      animation: { enabled: s.animation, duration: 220 },
+      animation: { enabled: s.animation, duration: 260 },
       highlight: { lastMove: true, check: true },
       movable: { free: false, showDests: true, color: undefined, events: { after: (o, d) => this.handleMove(o as Square, d as Square) } },
       premovable: { enabled: false },
       draggable: { enabled: true, showGhost: true },
       drawable: { enabled: true, visible: true },
+      events: { select: () => this.renderDangers() },
     });
+    // chessground has no "deselect" event: re-check the selection after every tap
+    this.el.addEventListener('pointerup', () => requestAnimationFrame(() => this.renderDangers()));
+  }
+
+  /** Show ✗ marks for pinned pieces and for moves that allow mate in one (null = off). */
+  setDangers(d: Dangers | null) {
+    this.danger = d;
+    this.renderDangers();
+  }
+
+  /** Danger marks are drawn by chessground (custom SVG shapes); arrows live in the animated overlay. */
+  private renderDangers() {
+    const d = this.danger;
+    // custom SVG shapes need a laid-out board (zero size → NaN coordinates)
+    if (!d || !this.el.isConnected || !this.el.clientWidth) {
+      this.cg.setAutoShapes([]);
+      return;
+    }
+    const out: DrawShape[] = d.pinned.map((sq) => ({ orig: sq as Key, customSvg: { html: PIN_SVG } }));
+    const sel = this.cg.state.selected;
+    if (sel) for (const to of d.mateIn1.get(sel as Square) ?? []) out.push({ orig: to as Key, customSvg: { html: BAD_DEST_SVG } });
+    this.cg.setAutoShapes(out);
   }
 
   /** Set the position. `movable` = which colour the user may move (null = view only). */

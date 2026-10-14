@@ -70,7 +70,7 @@ export function describeMove(fenBefore: string, m: Move): string[] {
   const piece = NAME[m.piece];
 
   if (after.isCheckmate()) return ['It is checkmate!'];
-  if (m.isKingsideCastle() || m.isQueensideCastle()) reasons.push('castles — the king gets safe and the rooks connect');
+  if (m.isKingsideCastle() || m.isQueensideCastle()) reasons.push('castles, so the king gets safe and the rooks connect');
   if (m.captured) {
     const recapturable = after.attackers(m.to, other(who)).length > 0;
     const gain = VALUE[m.captured] - (recapturable ? VALUE[m.piece] : 0);

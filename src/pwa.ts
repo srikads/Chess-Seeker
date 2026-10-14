@@ -33,19 +33,37 @@ export function initPwa() {
   });
 }
 
+/** Running as the installed app (home-screen icon) rather than in a browser tab? */
+export const isInstalledApp = () =>
+  matchMedia('(display-mode: standalone)').matches ||
+  matchMedia('(display-mode: fullscreen)').matches ||
+  (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
 /** Capture the Android "install app" prompt so we can offer an Install button. */
 let deferred: any = null;
 const listeners = new Set<() => void>();
+const notify = () => listeners.forEach((l) => l());
 addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferred = e;
-  listeners.forEach((l) => l());
+  notify();
 });
-export const canInstall = () => !!deferred;
-export const onInstallable = (fn: () => void) => listeners.add(fn);
+// Installed from our button or from the browser menu: stop offering it.
+addEventListener('appinstalled', () => {
+  deferred = null;
+  notify();
+});
+/** Offer "Install app" only in a browser tab where the browser says installing is possible. */
+export const canInstall = () => !!deferred && !isInstalledApp();
+/** Called whenever canInstall() may have changed. */
+export const onInstallChange = (fn: () => void) => {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+};
 export async function promptInstall() {
   if (!deferred) return;
   deferred.prompt();
   await deferred.userChoice;
-  deferred = null;
+  deferred = null; // the prompt can only be used once, accepted or not
+  notify();
 }
