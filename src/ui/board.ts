@@ -4,10 +4,10 @@ import type { Key } from '@lichess-org/chessground/types';
 import type { DrawShape } from '@lichess-org/chessground/draw';
 import { Chess, type Move, type Square } from 'chess.js';
 import { destsOf, isPromotion, turnColor } from '../chess/util';
-import type { Dangers } from '../chess/guards';
 import { settings } from '../store/settings';
 import type { Annotations } from '../lessons/types';
 import type { MoveClass } from '../chess/classify';
+import type { Dangers } from '../chess/guards';
 import { h } from './dom';
 import { classBadge } from './icons';
 import { playSound } from './sound';
@@ -71,12 +71,12 @@ export class BoardView {
   private shapes: DrawShape[] = [];
   private extra: DrawShape[] = [];
   private shown = new Set<string>();
-  private danger: Dangers | null = null;
   private highlights = new Map<Key, string>();
   private fx: SVGSVGElement;
   private badgeEl: HTMLElement | null = null;
   private badgeAt: { sq: string; cls: MoveClass } | null = null;
   private flashEls: HTMLElement[] = [];
+  private danger: Dangers | null = null;
 
   constructor(opts: BoardOptions = {}) {
     this.onMove = opts.onMove;
@@ -90,7 +90,7 @@ export class BoardView {
     this.cg = Chessground(inner, {
       orientation: opts.orientation ?? 'white',
       coordinates: s.coordinates,
-      animation: { enabled: s.animation, duration: 220 },
+      animation: { enabled: s.animation, duration: 260 },
       highlight: { lastMove: true, check: true },
       movable: { free: false, showDests: true, color: undefined, events: { after: (o, d) => this.handleMove(o as Square, d as Square) } },
       premovable: { enabled: false },
@@ -108,6 +108,7 @@ export class BoardView {
     this.renderDangers();
   }
 
+  /** Danger marks are drawn by chessground (custom SVG shapes); arrows live in the animated overlay. */
   private renderDangers() {
     const d = this.danger;
     // custom SVG shapes need a laid-out board (zero size → NaN coordinates)
@@ -325,8 +326,7 @@ export class BoardView {
         'div.promo',
         { onclick: () => done(undefined) },
         h(
-          // .cg-wrap scopes chessground's piece-image CSS to the picker too
-          'div.promo-box.cg-wrap',
+          'div.promo-box',
           roles.map(([k, role]) =>
             h(
               'button.promo-piece',
