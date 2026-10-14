@@ -76,6 +76,7 @@ route('/more', moreView);
 route('/analysis', () => analysisView([]));
 route('/analysis/:fen', analysisView);
 route('/openings', openingsView);
+route('/openings/train/:id', (p) => openingsView(['train', p[0]]));
 route('/drills', drillsView);
 route('/rush', rushView);
 route('/vision', visionView);
