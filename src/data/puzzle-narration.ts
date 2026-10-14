@@ -9,6 +9,7 @@ import { motifsOf } from '../chess/motifs';
 import { NAME, VALUE, other } from '../chess/util';
 import { puzzleStart, type Puzzle } from './puzzles';
 
+const NAMED = new Set(['fork', 'pin', 'skewer', 'discovered', 'double-check', 'remove-defender', 'sacrifice', 'free-piece', 'promotion']);
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const THEME_INTRO: [string, string][] = [
@@ -110,13 +111,16 @@ export function buildPuzzleNarration(p: Puzzle): { startFen: string; steps: Narr
 
   if (!g.isCheckmate()) {
     const gain = materialOf(g, me) - materialOf(g, other(me)) - startMat;
+    const first = solution[0] ? new Chess(start).move({ from: solution[0].slice(0, 2), to: solution[0].slice(2, 4), promotion: solution[0][4] }) : null;
+    const motif = first ? motifsOf(start, first).find((x) => NAMED.has(x.id)) : undefined;
     const text =
       gain >= 9 ? 'You win the queen. That is the puzzle!'
       : gain >= 5 ? 'You come out a rook ahead. Nice!'
       : gain >= 3 ? 'You win a whole piece. Well done!'
       : gain >= 1 ? 'You win material and keep the advantage.'
-      : 'Your position is now much better.';
-    steps.push({ text, mood: 'happy' });
+      : motif ? `That's the idea: a **${motif.label.toLowerCase()}**.`
+      : null;
+    if (text) steps.push({ text, mood: 'happy' });
   }
   return { startFen: setupSan ? p.fen : start, steps: steps.map((s) => ({ ...s, text: cap(s.text) })) };
 }

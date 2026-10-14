@@ -30,6 +30,8 @@ export interface SolverOptions {
   coach?: boolean;
 }
 
+/** Motifs worth naming after a solve (positional ones like "open file" are left out). */
+export const TACTICS = new Set(['fork', 'pin', 'skewer', 'discovered', 'double-check', 'remove-defender', 'sacrifice', 'free-piece', 'back-rank', 'smothered', 'promotion']);
 const PRAISE = ['Correct!', 'Nice!', 'Good move!', 'Yes!'];
 const SOLVED = ['Solved!', 'Well done!', 'Great job!', 'Excellent!'];
 const sideName = (s: Side) => (s === 'white' ? 'White' : 'Black');
@@ -65,6 +67,12 @@ export class PuzzleSolver {
     this.footer = h('div.pz-footer');
     this.side = h('div.pz-coach', o.coach === false ? null : this.coach.el, this.footer);
     this.el = h('div.play-layout.pz-layout', h('div.board-col', this.pill, this.boardBox), h('div.side-col', this.side));
+    // dev-only hook for automated UI checks: the moves still to find
+    if (import.meta.env.DEV) {
+      const w = window as unknown as Record<string, unknown>;
+      w.__pzSolver = () => this.puzzle?.moves.slice(this.ply) ?? null;
+      w.__pzFen = () => this.g.fen();
+    }
   }
 
   get isSolving() {
@@ -211,7 +219,7 @@ export class PuzzleSolver {
     const g = new Chess(fen);
     try {
       const m = g.move({ from: solution[0].slice(0, 2), to: solution[0].slice(2, 4), promotion: solution[0][4] });
-      const mo = motifsOf(fen, m).find((x) => !['develop', 'centre', 'castle', 'active-king', 'passed'].includes(x.id));
+      const mo = motifsOf(fen, m).find((x) => TACTICS.has(x.id));
       return mo?.label ?? null;
     } catch {
       return null;

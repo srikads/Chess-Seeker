@@ -21,6 +21,7 @@
 .pz-daily { display: flex; gap: 14px; align-items: center; background: var(--surface); border-radius: 12px; padding: 10px; color: var(--text); transition: background 0.12s; }
 .pz-daily:hover { background: color-mix(in srgb, var(--surface) 85%, white); }
 .pz-daily-board { width: 112px; flex: none; pointer-events: none; }
+.pz-daily-board coords { display: none; }
 .pz-daily-board .board-wrap { box-shadow: 0 3px 0 rgb(0 0 0 / 0.25); border-radius: 4px; }
 .pz-daily-text { display: grid; gap: 4px; min-width: 0; }
 .pz-daily-text strong { font-size: 1.05rem; }
