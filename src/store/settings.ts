@@ -22,6 +22,10 @@ export interface Settings {
   lastBot: number;
   lastTimeControl: string;
   lastColor: 'white' | 'black' | 'random';
+  /** Play vs bots: aids chosen last time (see src/chess/playmodes.ts); null = derive from the old toggles */
+  playAssist: Record<string, boolean> | null;
+  /** bots talk in a little speech bubble */
+  botChat: boolean;
 }
 
 const KEY = 'cs.settings.v1';
@@ -42,6 +46,8 @@ export const DEFAULT_SETTINGS: Settings = {
   lastBot: 2,
   lastTimeControl: '15+10',
   lastColor: 'white',
+  playAssist: null,
+  botChat: true,
 };
 
 let current: Settings = load();
