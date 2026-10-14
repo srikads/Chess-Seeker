@@ -261,3 +261,8 @@ export function coachCard(x: CoachInput): CoachCard {
   }
   return card;
 }
+
+/** A one-line rule of thumb for the techniques in a line: used against the user (`attacking` false) or by them. */
+export function ruleOfThumb(motifs: Motif[], attacking: boolean): string {
+  return ruleFrom(motifs, attacking ? ATTACK : DEFEND) ?? (attacking ? GENERIC_ATTACK : GENERIC_DEFEND);
+}
