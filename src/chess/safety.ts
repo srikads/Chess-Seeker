@@ -76,7 +76,8 @@ export function cct(fen: string, color: Color): Cct {
     // a threat only counts if the piece is not simply lost on its new square
     const safe = !hangingPieces(t, color).includes(m.to);
     const fresh = m.piece === 'k' ? [] : targetsOf(t, m.to).filter((s) => !before.has(s));
-    if (fresh.length && safe) out.threats.push(cm(m, fresh.some((s) => VALUE[t.get(s)!.type] >= 3)));
+    // only real threats: hitting a piece (not just a pawn) from a safe square
+    if (safe && fresh.some((s) => VALUE[t.get(s)!.type] >= 3)) out.threats.push(cm(m, true));
   }
   const rank = (a: CctMove, b: CctMove) => Number(b.good) - Number(a.good);
   out.checks.sort(rank);
@@ -103,7 +104,7 @@ export function cctSummary(kind: CctKind, mine: CctMove[], theirs: CctMove[]): s
     : `You have no ${word}s right now.`;
   const them = theirs.length
     ? `They ${verb} ${list(goodTheirs.length ? goodTheirs : theirs)}${kind === 'captures' && goodTheirs.length ? ', so guard that piece!' : '.'}`
-    : `They have no ${word}s. Nice and calm.`;
+    : kind === 'threats' ? 'They have no new attacks to make.' : `They have no ${word}s. Nice and calm.`;
   return `${you} ${them}`;
 }
 
@@ -195,7 +196,9 @@ export function moveSafety(fenBefore: string, move: { from: string; to: string; 
   if (res.allowsMate) res.text = `Careful! After this they can play ${res.allowsMate.san}: checkmate.`;
   else if (res.newlyHanging.length) {
     const sq = res.newlyHanging.sort((a, b) => VALUE[after.get(b)!.type] - VALUE[after.get(a)!.type])[0];
-    res.text = `Your ${NAME[after.get(sq)!.type]} on ${sq} could be taken. Is it safe?`;
+    const by = res.attackers.find((x) => x.to === sq);
+    const who = by ? `their ${NAME[after.get(by.from)!.type]}` : 'they';
+    res.text = `Your ${NAME[after.get(sq)!.type]} on ${sq} is not safe: ${who} can take it.`;
   } else res.text = 'Looks safe: nothing new left hanging.';
   return res;
 }
