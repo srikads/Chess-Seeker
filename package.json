@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "validate:lessons": "tsx scripts/validate-lessons.ts",
+    "validate:courses": "tsx scripts/validate-courses.ts",
     "build:puzzles": "node scripts/build-puzzles.mjs"
   },
   "repository": {
