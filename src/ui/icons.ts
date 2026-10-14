@@ -53,6 +53,7 @@ const PATHS = {
   bot: '<path d="M11 2h2v2.1A7 7 0 0 1 19 11v6a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-6a7 7 0 0 1 6-6.9zm-2 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M2 12h2v4H2zm18 0h2v4h-2z" fill="currentColor"/>',
   chat: '<path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2" fill="currentColor"/>',
   volume: '<path d="M3 9h4l5-4.5v15L7 15H3zm12.5-1.6a6 6 0 0 1 0 9.2l-1.4-1.4a4 4 0 0 0 0-6.4z" fill="currentColor"/>',
+  move: '<path d="M12 2 8.5 5.5H11V11H5.5V8.5L2 12l3.5 3.5V13H11v5.5H8.5L12 22l3.5-3.5H13V13h5.5v2.5L22 12l-3.5-3.5V11H13V5.5h2.5z" fill="currentColor"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;

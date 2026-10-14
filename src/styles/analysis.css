@@ -115,3 +115,4 @@
 @media (prefers-reduced-motion: reduce) {
   .an-editor, .an-switch::after, .an-depth.live::before, .an-line.skeleton .an-pv { animation: none; transition: none; }
 }
+.analysis .board-area, .op-explorer .board-wrap { scroll-margin-top: 64px; }

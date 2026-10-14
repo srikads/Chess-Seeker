@@ -482,7 +482,7 @@ export function analysisView(params: string[]): View {
     coach.say(text, moodFor(cls), { title, fen: n.parent!.fen });
     const acts = [];
     if (bestSan && bestSan !== n.san && cls !== 'book')
-      acts.push({ label: `Show ${bestSan}`, icon: 'play' as const, onclick: () => void showLine(n.parent!, before[0].pv) });
+      acts.push({ label: `Show ${bestSan}`, icon: 'next' as const, onclick: () => void showLine(n.parent!, before[0].pv) });
     coach.setActions(acts);
   }
 

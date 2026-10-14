@@ -84,7 +84,7 @@ export function openEditor(fen: string, onDone: (fen: string) => void): void {
         ),
       ),
       color === 'black'
-        ? h('button.tool', { type: 'button', 'data-b': 'hand', 'aria-label': 'Move pieces', title: 'Move pieces', onclick: () => setBrush(null) }, icon('play'))
+        ? h('button.tool', { type: 'button', 'data-b': 'hand', 'aria-label': 'Move pieces', title: 'Move pieces', onclick: () => setBrush(null) }, icon('move'))
         : h('button.tool', { type: 'button', 'data-b': 'trash', 'aria-label': 'Remove pieces', title: 'Remove pieces', onclick: () => setBrush('trash') }, icon('close')),
     );
 
