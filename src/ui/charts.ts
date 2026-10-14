@@ -36,7 +36,8 @@ function withTooltip(chart: Element): { el: HTMLElement; show: (x: number, y: nu
       const w = el.clientWidth;
       const tw = tip.offsetWidth;
       tip.style.left = `${Math.max(0, Math.min(w - tw, x - tw / 2))}px`;
-      tip.style.top = `${Math.max(0, y - tip.offsetHeight - 10)}px`;
+      const above = y - tip.offsetHeight - 10;
+      tip.style.top = `${above >= 0 ? above : y + 14}px`; // flip below the point when there's no room above
     },
     hide() {
       tip.hidden = true;
@@ -289,7 +290,8 @@ export function ring(p: number, o: { value: string; label?: string; color?: stri
   const pct = Math.max(0, Math.min(1, p));
   const svg = s('svg', { viewBox: '0 0 48 48', class: 'ring-svg', role: 'img', 'aria-label': `${o.value}${o.label ? ' ' + o.label : ''}` });
   svg.append(s('circle', { cx: 24, cy: 24, r: R, fill: 'none', stroke: 'var(--viz-track)', 'stroke-width': 5 }));
-  svg.append(
+  if (pct > 0)
+    svg.append(
     s('circle', {
       cx: 24, cy: 24, r: R, fill: 'none', stroke: o.color ?? 'var(--accent)', 'stroke-width': 5, 'stroke-linecap': 'round',
       'stroke-dasharray': `${pct * C} ${C}`, transform: 'rotate(-90 24 24)', class: 'ring-fill',
