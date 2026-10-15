@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { queensGambitChapters } from './content/queens-gambit';
 import { londonChapters } from './content/london';
 import { viennaChapters } from './content/vienna';
 
@@ -56,8 +57,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#8a2c3b', fg: '#ffe8c2', label: '2.c4', sub: 'Queen\'s Gambit', piece: 'queen', pieceColor: 'white' },
     description: 'Offer a pawn to win the center. Learn the Accepted, Declined and Slav setups from White\'s side.',
-    chapters: outline(['Queen\'s Gambit Accepted', 'Queen\'s Gambit Declined', 'Slav lines', 'Typical plans']),
-    status: 'draft',
+    chapters: queensGambitChapters,
+    status: 'ready',
   },
   {
     id: 'ruy-lopez',
