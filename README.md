@@ -5,16 +5,20 @@ It's inspired by chess.com, with one big difference: **no data ever leaves your 
 
 ## What's inside
 
-| Tab | What it does |
+| Area | What it does |
 | --- | --- |
-| **Home** | Today's plan and your **20/40/40 balance**: study time for openings, middlegame/tactics and endgames over the last 7 days, compared with your target split. It also shows your daily goal, puzzle rating, and how many long games you played this week. |
-| **Learn** | A guided path through four tracks: *Foundational Principles*, *Tactical Patterns*, *Endgame Technique*, and *Long Games & Study Method*. Each lesson works the same way: **Learn** (highlighted squares and arrows), **Watch** (step through a model example move by move, with an explanation for each move), **Try it** (you find the moves on a live board, with hints), **Play it out** (you play against Stockfish until you reach the goal), then a **Quiz**. |
-| **Puzzles** | About 3,000 offline puzzles from the Lichess puzzle database (CC0), filtered by theme (fork, pin, skewer, mate in 2, back rank, endgame…). You get an on‑device puzzle rating, and an "Explain move" button gives a plain‑English reason for each answer. |
-| **Play** | 11 bots from about 250 to full Stockfish strength. Long time controls go up to 60 | 30. The coach offers **hints on demand**, a **live blunder warning** ("Are you sure? The opponent answers Bxe4 and wins your knight"), and a thinking checklist. **Pure mode** turns all help off. A game in progress can be resumed later. |
-| **Games** | Chess.com‑style game review by Stockfish, played as a **guided review**. The game auto‑plays and pauses at every highlight: brilliant, great, mistake, miss, blunder or a big swing. At each pause a coach card offers **🎯 Play it yourself**: find the better move, punish the opponent's error, or replay the brilliant move. Every move is labelled **!! Brilliant**, **! Great**, ★ Best, Excellent, Good, Book, ?! Inaccuracy, ? Mistake, **✗ Miss** or ?? Blunder, and each label comes with a plain‑English *why*: what the move does, the only‑move margin for *Great*, the sacrifice for *Brilliant*, the refutation for mistakes, and the punishing move for a *Miss*. The review also has a broadcast‑style **White / Draw / Black win‑probability bar** (Stockfish's WDL model) that moves with every move and shows how much each move swung your chances. **How to continue** explains the best plan from each position, and **▶ Play the plan** animates it. **Technique links** (fork, pin, back‑rank mate, open file, passed pawn…) jump to the lesson that teaches the idea. Plus accuracy, an eval graph, key moments, your best moves and **Retry this moment**. Games can be exported as PGN. |
-| **Import** | Paste a PGN from chess.com, lichess or anywhere, or open a `.pgn` file. The game is parsed on the device (the app never contacts chess.com). You can scrub through it on a board, pick which side you were (your username is remembered), and get the full guided review. |
+| **Coach Hoot** | An original owl coach (six moods) talks you through every screen in short, one‑idea speech bubbles. Moves and squares in the text are tappable chips that point at the board, and longer explanations are walked through step by step while the pieces move and arrows draw themselves in (knight moves drawn as an L). |
+| **Home** | Greeting from the coach, continue your game or play your last bot, today's Daily Puzzle and next lesson with mini boards, your latest game review, today's plan, the **20/40/40 balance**, daily goal, puzzle rating and long games this week. |
+| **Play** | 11 bots with original illustrated characters and chat lines, from about 250 to full Stockfish. **Challenge / Friendly / Assisted** modes plus individual switches: move feedback with class badges, hints, suggestion and threat arrows, takebacks, eval bar, danger marks, the engine "Are you sure?" warning, and a **Safety check** that runs the *Checks? Captures? Threats?* habit before your move counts. Time controls up to 60 \| 30, resumable games, end‑of‑game card with Game Review / Rematch. |
+| **Puzzles** | About 3,000 offline Lichess puzzles (CC0) with an on‑device rating, streaks, hints and an animated step‑by‑step **Explain**. **Puzzle Rush** (3 min / 5 min / Survival, three strikes), a **Daily Puzzle** with a streak calendar, **Custom Puzzles** (themes + difficulty), **Learn from mistakes**, **Drills** (11 endgame/technique positions vs Stockfish) and **Board Vision** (coordinates, knight moves, is‑it‑defended, spot the hanging piece). |
+| **Learn** | **Courses**: 30 chessly‑style courses (white openings, black openings and defenses, gambits & attacks, skill courses) with a beginner *Start here* path. Each line is **learned** move by move with the coach, **practised from memory** with spaced repetition, then **played out** against a bot. Every learner move is checked by Stockfish (`npm run validate:courses`). Plus the original guided **lessons** in four tracks (Learn → Watch → Try it → Play it out → Quiz). |
+| **Game Review** | Report card first (accuracy, estimated game rating, opening/middlegame/endgame grades, move‑class counts, eval graph), then a guided review: the class badge sits on the board, the coach says one short line, and **Best / Show (Fork, Threat, Lost Piece…) / Retry / Next** animate the idea on the board. **Explain step by step** walks through the threat, your move, the punishment and the better move. Brilliant/Great/Miss logic, win‑probability bar, plans, technique links and PGN export are all kept. **Learn from mistakes** turns your errors into a spaced‑repetition puzzle deck. |
+| **Import** | Paste a PGN from chess.com, lichess or anywhere, or open a `.pgn` file — parsed on the device — and get the full review. |
+| **Insights** | Computed on the device from your games and puzzles: results, accuracy over time and by phase, mistakes by type, tactics you missed, your openings, results vs each bot, time usage, puzzle rating history and theme strengths, plus the coach's top 3 things to work on. |
+| **Analysis board** | Any position with live Stockfish: three best lines, an eval bar and best-move arrows (or turn the engine off for self analysis). Play moves to build a tree of variations, promote or delete them, and see each move graded as you go. The opening name updates as you play. **Coach explains** animates the best line. Set up a position with the board editor or a FEN, load a PGN (variations kept), and copy the FEN or PGN. |
+| **Openings** | An offline opening explorer: the book moves from any position, each with its opening name and an on-device engine eval (no made-up win rates, since there's no games database offline). **Key ideas** walks through about 20 common openings with arrows and short coach lines. **Practice** drills a beginner repertoire: you play your side, the app answers, and spaced repetition brings each line back before you forget it. |
 
-The app uses dark mode by default (light is one tap away), with four board colour themes. A backup export/import to a local JSON file is under Settings.
+The app uses a chess.com‑like dark theme by default (light is one tap away), with four board colour themes, a bottom tab bar on phones and a sidebar on desktop. A backup export/import to a local JSON file is under Settings.
 
 ## Privacy by design
 
@@ -45,6 +49,8 @@ npm test                  # unit tests
 npm run validate:lessons  # checks every lesson with chess.js AND Stockfish (slow the first time; cached)
 npm run validate:lessons -- --no-engine        # fast legality-only check
 npm run validate:lessons -- --only=tactics     # one track or lesson id
+npm run validate:courses                       # checks every course line with chess.js AND Stockfish
+npm run validate:courses -- --only=italian     # one course
 ```
 
 To build the puzzle pack locally, download `lichess_db_puzzle.csv.zst` and run
@@ -63,3 +69,4 @@ Chess Seeker is licensed **GPL‑3.0‑or‑later**. It builds on:
 - [chessground](https://github.com/lichess-org/chessground) by Lichess (GPL‑3.0)
 - [chess.js](https://github.com/jhlywa/chess.js) (BSD‑2)
 - the [Lichess puzzle database](https://database.lichess.org/#puzzles) (CC0)
+- opening names from [lichess-org/chess-openings](https://github.com/lichess-org/chess-openings) (CC0), bundled as `public/openings/openings.json` by `npm run build:openings`

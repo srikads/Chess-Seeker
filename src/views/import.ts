@@ -1,10 +1,13 @@
 import { Chess } from 'chess.js';
 import { h, toast, setChildren } from '../ui/dom';
 import { BoardView } from '../ui/board';
+import { icon } from '../ui/icons';
+import { PlayerCard, materialFromFen, pageHeader } from '../ui/widgets';
 import { parsePgn, type ParsedGame } from '../chess/pgn';
 import { saveGame, kvGet, kvSet, type GameRecord } from '../store/db';
 import { trackStudy } from '../store/tracker';
 import { go, type View } from '../router';
+import '../styles/review.css';
 
 const NAMES_KEY = 'myUsernames';
 
@@ -18,13 +21,15 @@ export async function importView(): Promise<View> {
   let lastMoves: ([string, string] | undefined)[] = [];
   let ply = 0;
   let side: 'white' | 'black' | 'both' = 'white';
+  let cards: { white: PlayerCard; black: PlayerCard } | null = null;
 
   const textarea = h('textarea.pgn-input', {
-    rows: 8,
+    rows: 7,
     placeholder: '[Event "Live Chess"]\n[White "you"]\n[Black "opponent"]\n...\n1. e4 e5 2. Nf3 ...',
     spellcheck: false,
     autocapitalize: 'off',
     autocomplete: 'off',
+    'aria-label': 'PGN',
   }) as HTMLTextAreaElement;
   const error = h('div');
   const preview = h('div.import-preview');
@@ -41,14 +46,19 @@ export async function importView(): Promise<View> {
   });
 
   const baseName = (s: string) => s.replace(/\s*\(\d+\)$/, '');
+  const plyLabel = h('span.ply-label', '');
+  const slider = h('input.ply-slider', { type: 'range', min: '0', max: '0', value: '0', 'aria-label': 'Move', oninput: (e: Event) => setPly(Number((e.target as HTMLInputElement).value)) }) as HTMLInputElement;
 
   function setPly(p: number) {
     ply = Math.max(0, Math.min(p, fens.length - 1));
     board.set(fens[ply], { lastMove: lastMoves[ply] });
-    const slider = preview.querySelector('input[type=range]') as HTMLInputElement | null;
-    if (slider) slider.value = String(ply);
-    const label = preview.querySelector('.ply-label');
-    if (label && parsed) label.textContent = ply === 0 ? 'Start' : `${Math.ceil(ply / 2)}${ply % 2 ? '.' : '…'} ${parsed.sans[ply - 1]}`;
+    slider.value = String(ply);
+    if (parsed) plyLabel.textContent = ply === 0 ? 'Start' : `${Math.ceil(ply / 2)}${ply % 2 ? '.' : '…'} ${parsed.sans[ply - 1]}`;
+    if (cards) {
+      const m = materialFromFen(fens[ply]);
+      cards.white.setCaptured(m.whiteTook, 'black', m.lead);
+      cards.black.setCaptured(m.blackTook, 'white', -m.lead);
+    }
   }
 
   function doPreview() {
@@ -74,37 +84,50 @@ export async function importView(): Promise<View> {
     const b = baseName(parsed.black).toLowerCase();
     const known = myNames.map((n) => n.toLowerCase());
     side = known.includes(b) && !known.includes(w) ? 'black' : known.includes(w) ? 'white' : side;
+    cards = {
+      white: new PlayerCard({ name: baseName(parsed.white), rating: parsed.white.match(/\((\d+)\)$/)?.[1], color: 'white' }),
+      black: new PlayerCard({ name: baseName(parsed.black), rating: parsed.black.match(/\((\d+)\)$/)?.[1], color: 'black' }),
+    };
+    slider.max = String(fens.length - 1);
     renderPreview();
     setPly(fens.length - 1);
   }
 
   function renderPreview() {
-    if (!parsed) return;
+    if (!parsed || !cards) return;
     const p = parsed;
     board.setOrientation(side === 'black' ? 'black' : 'white');
-    const sideChip = (s: typeof side, label: string) =>
-      h(`button.chip${side === s ? '.on' : ''}`, { onclick: () => ((side = s), renderPreview(), setPly(ply)) }, label);
+    const flipped = side === 'black';
+    const sideBtn = (s: typeof side, label: string, wide = false) =>
+      h(`button.btn${side === s ? '.on' : ''}${wide ? '.wide' : ''}`, { type: 'button', 'aria-pressed': String(side === s), onclick: () => ((side = s), renderPreview(), setPly(ply)) }, label);
     const tcLabel = p.timeControl === 'none' ? 'untimed' : p.timeControl.replace('+', ' | ');
     setChildren(
       preview,
-      h('div.card.game-summary',
-        h('div.row.between', h('strong', `⚪ ${p.white}`), h('span.pill', p.result)),
-        h('div.row.between', h('strong', `⚫ ${p.black}`), h('span.small.muted', `${Math.ceil(p.sans.length / 2)} moves · ${tcLabel} · ${p.termination}`)),
-        p.headers.Site ? h('small', `${p.headers.Site}${p.headers.Date ? ' · ' + p.headers.Date : ''}`) : null,
+      h(
+        'div.import-grid',
+        h(
+          'div',
+          cards[flipped ? 'white' : 'black'].el,
+          board.el,
+          cards[flipped ? 'black' : 'white'].el,
+          h(
+            'div.rv-ctrl',
+            h('button.rv-ctl', { type: 'button', 'aria-label': 'Start', onclick: () => setPly(0) }, icon('first')),
+            h('button.rv-ctl', { type: 'button', 'aria-label': 'Previous move', onclick: () => setPly(ply - 1) }, icon('prev')),
+            h('button.rv-ctl', { type: 'button', 'aria-label': 'Next move', onclick: () => setPly(ply + 1) }, icon('next')),
+            h('button.rv-ctl', { type: 'button', 'aria-label': 'End', onclick: () => setPly(fens.length - 1) }, icon('last')),
+          ),
+          h('div.row', plyLabel, h('div.grow', slider)),
+        ),
+        h(
+          'div',
+          h('div.import-meta', `${p.result} · ${Math.ceil(p.sans.length / 2)} moves · ${tcLabel} · ${p.termination}`, p.headers.Site ? ` · ${p.headers.Site}` : '', p.headers.Date ? ` · ${p.headers.Date}` : ''),
+          h('h3', 'Which side were you?'),
+          h('div.import-side', sideBtn('white', baseName(p.white)), sideBtn('black', baseName(p.black)), sideBtn('both', 'Neither — just analyse', true)),
+          h('button.btn.primary.big', { type: 'button', onclick: () => void doImport() }, 'Import & review'),
+          h('p.small.muted', 'The game is saved only on this device. The engine analyses it on your phone.'),
+        ),
       ),
-      board.el,
-      h('div.demo-ctrl',
-        h('button.btn', { 'aria-label': 'Start', onclick: () => setPly(0) }, '⏮'),
-        h('button.btn', { 'aria-label': 'Previous move', onclick: () => setPly(ply - 1) }, '◀'),
-        h('span.ply-label.counter.grow', ''),
-        h('button.btn', { 'aria-label': 'Next move', onclick: () => setPly(ply + 1) }, '▶'),
-        h('button.btn', { 'aria-label': 'End', onclick: () => setPly(fens.length - 1) }, '⏭'),
-      ),
-      h('input.ply-slider', { type: 'range', min: '0', max: String(fens.length - 1), value: String(ply), 'aria-label': 'Move', oninput: (e: Event) => setPly(Number((e.target as HTMLInputElement).value)) }),
-      h('h3', 'Which side were you?'),
-      h('div.chips', sideChip('white', `⚪ ${baseName(p.white)}`), sideChip('black', `⚫ ${baseName(p.black)}`), sideChip('both', 'Neither — just analyse')),
-      h('button.btn.primary.big', { onclick: () => void doImport() }, '🔍 Import & review'),
-      h('p.small.muted', 'The game is saved only on this device. Stockfish analyses it on your phone.'),
     );
   }
 
@@ -131,19 +154,38 @@ export async function importView(): Promise<View> {
       if (me && !myNames.includes(me)) await kvSet(NAMES_KEY, [...myNames, me].slice(-5));
     }
     const id = await saveGame(rec);
-    toast('Game imported — analysing…', 'good');
+    toast('Game imported. Analysing…', 'good');
     go(`/review/${id}`);
   }
 
   const el = h(
     'div.page.import',
-    h('header.lesson-head', h('a.icon-btn', { href: '#/games', 'aria-label': 'Back' }, '‹'), h('div.grow', h('h2', 'Import a game'))),
-    h('p.muted.small', 'On chess.com open the game → Share (⤴) → PGN → Copy, then paste it here. Lichess and other PGNs work too. Nothing is sent anywhere — the PGN is read on this device.'),
+    pageHeader('Import a game', { back: '/games' }),
+    h('div.import-help', icon('upload'), h('div', 'On chess.com open the game, tap Share, then PGN, then Copy, and paste it here. Lichess and other PGNs work too. The PGN is read on this device; nothing is sent anywhere.')),
     textarea,
-    h('div.row.wrap', h('button.btn.primary', { onclick: doPreview }, 'Preview game'), h('label.btn', '📄 Open .pgn file', fileInput), h('button.btn.ghost', { onclick: async () => { try { textarea.value = await navigator.clipboard.readText(); doPreview(); } catch { toast('Paste with long-press → Paste instead', 'info'); } } }, '📋 Paste')),
+    h(
+      'div.import-tools',
+      h('button.btn.primary', { type: 'button', onclick: doPreview }, 'Preview game'),
+      h('label.btn', icon('games'), 'Open .pgn file', fileInput),
+      h(
+        'button.btn.ghost',
+        {
+          type: 'button',
+          onclick: async () => {
+            try {
+              textarea.value = await navigator.clipboard.readText();
+              doPreview();
+            } catch {
+              toast('Paste with long-press → Paste instead', 'info');
+            }
+          },
+        },
+        'Paste',
+      ),
+    ),
     error,
     preview,
   );
   textarea.addEventListener('paste', () => setTimeout(doPreview, 0));
-  return { el, destroy: () => board.destroy() };
+  return { el, title: 'Import a game', destroy: () => board.destroy() };
 }

@@ -13,6 +13,8 @@ export interface Settings {
   /** Coach defaults for play vs bot */
   hints: boolean;
   blunderWarning: boolean;
+  /** ✗ marks on pinned pieces and on moves that allow mate in one */
+  dangerMarks: boolean;
   /** 20/40/40 split (percent, sums to 100) */
   split: Record<Bucket, number>;
   dailyGoalMin: number;
@@ -20,6 +22,10 @@ export interface Settings {
   lastBot: number;
   lastTimeControl: string;
   lastColor: 'white' | 'black' | 'random';
+  /** Play vs bots: aids chosen last time (see src/chess/playmodes.ts); null = derive from the old toggles */
+  playAssist: Record<string, boolean> | null;
+  /** bots talk in a little speech bubble */
+  botChat: boolean;
 }
 
 const KEY = 'cs.settings.v1';
@@ -33,12 +39,15 @@ export const DEFAULT_SETTINGS: Settings = {
   autoQueen: false,
   hints: true,
   blunderWarning: true,
+  dangerMarks: true,
   split: { openings: 20, tactics: 40, endgames: 40 },
   dailyGoalMin: 30,
   weeklyLongGames: 3,
   lastBot: 2,
   lastTimeControl: '15+10',
   lastColor: 'white',
+  playAssist: null,
+  botChat: true,
 };
 
 let current: Settings = load();

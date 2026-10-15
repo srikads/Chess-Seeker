@@ -1,0 +1,102 @@
+/* Home — chess.com-app style hub. */
+.home2 { display: grid; gap: 12px; }
+.home2 .card { margin: 0; }
+.home2 h2 { font-size: 1.05rem; }
+
+.home-hello { display: flex; align-items: center; gap: 12px; padding: 2px 0; }
+.hh-face { width: 64px; height: 64px; flex: none; animation: hh-in 0.45s cubic-bezier(.3,1.5,.5,1) both; }
+.hh-face .mascot { width: 100%; height: 100%; display: block; }
+.hh-text h1 { margin: 0; font-size: 1.45rem; }
+.hh-text p { margin: 2px 0 0; color: var(--text-2); }
+@keyframes hh-in { from { transform: scale(0.6) rotate(-8deg); opacity: 0; } }
+
+.home-install { display: flex; align-items: center; gap: 12px; }
+.home-install[hidden] { display: none; }
+.hi-icon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); flex: none; }
+.hi-icon .icon { width: 24px; height: 24px; }
+
+/* play hero */
+.play-hero { display: flex; gap: 14px; align-items: stretch; padding: 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--surface)), var(--surface) 70%); transition: transform 0.12s; }
+.play-hero:active { transform: scale(0.99); }
+.ph-board { width: 42%; max-width: 220px; flex: none; }
+.ph-body { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+.ph-vs { display: flex; align-items: center; gap: 12px; }
+.ph-vs strong { display: block; font-size: 1.05rem; }
+.ph-name { font-size: 1.35rem !important; letter-spacing: -0.01em; }
+.ph-av { width: 44px; height: 44px; flex: none; border-radius: 8px; overflow: hidden; display: grid; place-items: center; background: var(--surface-2); }
+.ph-av.big { width: 64px; height: 64px; }
+.ph-av svg { width: 100%; height: 100%; display: block; }
+.hp-bot { display: grid; place-items: center; color: var(--muted); width: 100%; height: 100%; }
+.hp-bot .icon { width: 60%; height: 60%; }
+.btn.big.ph-cta { margin-top: 0; font-size: 1.1rem; min-height: 52px; white-space: nowrap; padding: 10px 12px; }
+.btn.big.ph-cta .icon { width: 24px; height: 24px; }
+
+/* stats strip */
+.home-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.hstat { display: flex; align-items: center; gap: 10px; background: var(--surface); border-radius: var(--radius); padding: 10px 12px; min-width: 0; }
+.hstat .ring-svg { width: 40px; height: 40px; flex: none; }
+.hstat strong { display: block; font-size: 1.1rem; line-height: 1.15; }
+.hstat small { font-size: 0.74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hstat > div { min-width: 0; }
+.hstat-icon { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--c); }
+.hstat-icon .icon { width: 22px; height: 22px; }
+@media (min-width: 640px) { .home-stats { grid-template-columns: repeat(4, 1fr); } }
+
+/* card grid */
+.home-grid { display: grid; gap: 12px; }
+@media (min-width: 700px) { .home-grid { grid-template-columns: 1fr 1fr; } }
+.hcard { display: flex; flex-direction: column; gap: 10px; color: var(--text); transition: background 0.12s, transform 0.12s; }
+.hcard:hover, .mtile:hover, .plan2-item:hover { background: color-mix(in srgb, var(--surface) 88%, white); }
+.hcard:active, .mtile:active, .plan2-item:active { transform: scale(0.99); }
+.hc-head { display: flex; align-items: center; gap: 10px; }
+.hc-head strong { display: block; font-size: 1rem; }
+.hc-icon { width: 38px; height: 38px; flex: none; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--c, var(--accent)) 20%, transparent); color: var(--c, var(--accent)); }
+.hc-icon .icon { width: 22px; height: 22px; }
+.hc-board { width: 100%; max-width: 260px; align-self: center; }
+.hc-board.small { width: 104px; flex: none; }
+.hc-split { display: flex; gap: 12px; align-items: flex-start; }
+.hc-split h3 { margin: 0 0 2px; font-size: 1.05rem; }
+.hc-progress { display: flex; align-items: center; gap: 8px; }
+.hc-progress small { min-width: 2.6em; text-align: right; }
+.hc-cta { margin-top: auto; width: 100%; }
+.puzzle-card .hc-board { max-width: 200px; }
+.rv-line { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.rv-acc { margin-top: 10px; }
+.rv-acc strong { font-size: 1.9rem; line-height: 1; }
+.result-chip { font-size: 0.75rem; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: var(--surface-2); }
+.result-chip.win { background: var(--viz-win); color: #fff; }
+.result-chip.loss { background: var(--viz-loss); color: #fff; }
+.home-tiles { display: grid; gap: 12px; align-content: start; }
+.mtile { display: flex; align-items: center; gap: 12px; color: var(--text); }
+.mtile strong { display: block; }
+.chev2 { color: var(--muted); display: grid; }
+.chev2 .icon { width: 20px; height: 20px; }
+
+/* plan */
+.home-section h2 { margin-bottom: 8px; }
+.plan2 { display: grid; gap: 2px; border-radius: var(--radius); overflow: hidden; }
+.plan2-item { display: flex; align-items: center; gap: 12px; background: var(--surface); padding: 11px 12px; color: var(--text); min-height: 60px; transition: background 0.12s; }
+.plan2-item strong { display: block; font-size: 0.97rem; }
+.plan2-item.done .hc-icon { background: var(--accent); color: #fff; }
+.plan2-item.done strong { color: var(--muted); }
+
+/* balance */
+.balance .split2 { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+.sp-icon { width: 34px; height: 34px; border-radius: 8px; flex: none; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--c); }
+.sp-icon .icon { width: 20px; height: 20px; }
+.balance .split-bar { height: 10px; }
+.balance .split-bar .fill { transition: width 0.6s cubic-bezier(.3,.7,.4,1); }
+
+.home-privacy { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); font-size: 0.82rem; padding: 6px 0 2px; text-align: center; }
+.home-privacy .icon { width: 18px; height: 18px; }
+.home-privacy strong { color: var(--accent); }
+
+@media (min-width: 900px) {
+  .home2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; column-gap: 16px; }
+  .home2 > .home-hello, .home2 > .home-install, .home2 > .play-hero, .home2 > .home-stats, .home2 > .home-grid, .home2 > .home-privacy { grid-column: 1 / -1; }
+  .home-grid { grid-template-columns: repeat(3, 1fr); }
+  .home-tiles { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+  .ph-board { max-width: 180px; }
+}
+@media (prefers-reduced-motion: reduce) { .hh-face { animation: none; } .hcard, .play-hero { transition: none; } }
+@media (min-width: 900px) { .btn.big.ph-cta { align-self: flex-start; min-width: 280px; } }

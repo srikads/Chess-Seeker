@@ -1,29 +1,31 @@
+// Game Review, chess.com style: a report card first (accuracy, game rating, phase grades, move counts,
+// eval graph), then a move-by-move review where the coach says one short line per move, the class badge
+// sits on the board, arrows draw in, and "Show …", "Best", "Retry" and "Explain step by step" animate
+// the ideas on the board in sync with the words.
 import { Chess } from 'chess.js';
-import { h, rich, toast, setChildren } from '../ui/dom';
+import { h, toast } from '../ui/dom';
 import { BoardView, arrow } from '../ui/board';
 import { playSound } from '../ui/sound';
+import { Coach, type CoachAction } from '../ui/coach';
+import { classBadge, CLASS_STYLE, icon } from '../ui/icons';
+import { PlayerCard, MoveList, EvalBar, materialFromFen } from '../ui/widgets';
+import { userAvatar } from '../ui/avatars';
 import { engine, scoreNum, winPct, fmtEval } from '../engine/engine';
-import { explainBest, explainMistake, describeMove } from '../chess/explain';
+import { BOTS } from '../engine/bots';
+import { displayName } from '../chess/coach';
+import { performance, ratingInName } from '../chess/performance';
 import { classifyMove, isSacrifice, moveAccuracy } from '../chess/classify';
 import { motifsOf, lineMotifs, type Motif } from '../chess/motifs';
+import { describeMoment, narrateMoment, ideaOf, ERRORS, type Moment, type MomentInput } from '../chess/narrate';
+import { CLASS_ORDER, classCounts, phaseGrades, phasesOf, summaryLine, type Side } from '../chess/reviewStats';
 import { lessonById } from '../lessons';
-import { pvToSan, formatLine, uciToSan, NAME } from '../chess/util';
+import { pvToSan, formatLine, uciToSan } from '../chess/util';
 import { getGame, saveGame, type GameRecord, type MoveAnalysis, type MoveClass } from '../store/db';
+import { addMistakes, loadCards } from '../store/mistakes';
 import { trackStudy } from '../store/tracker';
+import { download, downloadIcon, toPgn } from './games';
 import type { View } from '../router';
-
-const CLS_LABEL: Record<MoveClass, string> = {
-  brilliant: '!! Brilliant',
-  great: '! Great',
-  best: '★ Best',
-  excellent: '👍 Excellent',
-  good: '✓ Good',
-  book: '📖 Book',
-  inaccuracy: '?! Inaccuracy',
-  mistake: '? Mistake',
-  miss: '✗ Miss',
-  blunder: '?? Blunder',
-};
+import '../styles/review.css';
 
 /** Bump when classification changes so older reviews are recomputed. */
 const ANALYSIS_VERSION = 4;
@@ -86,6 +88,7 @@ async function analyseGame(rec: GameRecord, onProgress: (done: number, total: nu
     const bestSan = evals[i].best ? uciToSan(fens[i], evals[i].best) : '';
     const sec = evals[i].second;
     const winSecond = sec ? winPct(sec.score) : null;
+    const prev = i > 0 ? new Chess(fens[i - 1]).move(rec.sans[i - 1]) : null;
     const cls = classifyMove({
       ply: i,
       winBefore: wb,
@@ -97,7 +100,7 @@ async function analyseGame(rec: GameRecord, onProgress: (done: number, total: nu
       // mate scores are White POV: negative = Black is mating
       allowsMate: evals[i + 1].mate !== null && evals[i + 1].mate! * pov < 0 && !(evals[i].mate !== null && evals[i].mate! * pov < 0),
       missedMate: evals[i].mate !== null && evals[i].mate! * pov > 0 && !(evals[i + 1].mate !== null && evals[i + 1].mate! * pov >= 0),
-      isRecapture: !!played.captured && i > 0 && !!new Chess(fens[i - 1]).move(rec.sans[i - 1]).captured && new Chess(fens[i - 1]).move(rec.sans[i - 1]).to === played.to,
+      isRecapture: !!played.captured && !!prev?.captured && prev.to === played.to,
     });
     analysis.push({
       cp: evals[i + 1].cp,
@@ -120,70 +123,165 @@ async function analyseGame(rec: GameRecord, onProgress: (done: number, total: nu
   await saveGame(rec);
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const mq = (q: string) => (typeof matchMedia === 'function' ? matchMedia(q) : null);
+
+function badgeTitle(cls: MoveClass | null, text: string): HTMLElement {
+  return h('span.rv-title', cls ? classBadge(cls) : null, h('span', text));
+}
+
+/** chess.com-style eval graph: White's share from the bottom, dots for key moves, a cursor for the current move. */
+class EvalGraph {
+  readonly el: HTMLElement;
+  private cursor: HTMLElement;
+  constructor(analysis: MoveAnalysis[], startCp: number, onPick: (ply: number) => void, dots: (i: number) => boolean) {
+    const W = Math.max(1, analysis.length);
+    const ys = [startCp, ...analysis.map((m) => (m.mate !== null ? (m.cp > 0 || (m.mate === 0 && m.cp > 0) ? 10000 : -10000) : m.cp))].map((cp) => 100 - winPct(Math.max(-1500, Math.min(1500, cp))));
+    const pts = ys.map((y, i) => `${i},${y.toFixed(2)}`).join(' ');
+    this.cursor = h('div.eg-cursor');
+    this.el = h('div.eg', { role: 'img', 'aria-label': 'Evaluation graph' });
+    this.el.innerHTML = `<svg viewBox="0 0 ${W} 100" preserveAspectRatio="none"><polygon points="0,100 ${pts} ${W},100" class="eg-white"/><line x1="0" x2="${W}" y1="50" y2="50" class="eg-mid"/></svg>`;
+    this.el.append(this.cursor);
+    analysis.forEach((m, i) => {
+      if (!dots(i)) return;
+      this.el.append(h('span.eg-dot', { style: `left:${((i + 1) / W) * 100}%;top:${ys[i + 1]}%;background:${CLASS_STYLE[m.cls].color}`, title: CLASS_STYLE[m.cls].label }));
+    });
+    this.el.addEventListener('click', (e) => {
+      const r = this.el.getBoundingClientRect();
+      onPick(Math.max(0, Math.min(W, Math.round(((e.clientX - r.left) / r.width) * W))));
+    });
+    this.set(-1, W);
+  }
+  set(ply: number, total: number) {
+    this.cursor.hidden = ply < 0;
+    this.cursor.style.left = `${(Math.max(0, ply) / Math.max(1, total)) * 100}%`;
+  }
+}
+
 export async function reviewView([idStr]: string[]): Promise<View> {
   trackStudy('play');
   const rec = await getGame(Number(idStr));
   if (!rec) return { el: h('div.page', h('p', 'Game not found.'), h('a.btn', { href: '#/games' }, 'All games')) };
-  const board = new BoardView({ orientation: rec.userColor === 'black' ? 'black' : 'white', onMove: (m) => void onRetryMove(m) });
-  const fens: string[] = [rec.startFen];
+  const R = rec;
+  const board = new BoardView({ orientation: R.userColor === 'black' ? 'black' : 'white', onMove: (m) => void onRetryMove(m) });
+  const fens: string[] = [R.startFen];
   const lastMoves: ([string, string] | undefined)[] = [undefined];
   {
-    const g = new Chess(rec.startFen);
-    for (const s of rec.sans) {
+    const g = new Chess(R.startFen);
+    for (const s of R.sans) {
       const m = g.move(s);
       fens.push(g.fen());
       lastMoves.push([m.from, m.to]);
     }
   }
-  let ply = fens.length - 1;
-  /** A "play it yourself" challenge: find a good move in position `ply`. */
-  let retry: { ply: number; mode: 'better' | 'find' | 'punish' } | null = null;
-  // Guided (auto-play) review state
+  const whiteFirst = new Chess(R.startFen).turn() === 'w';
+  const userSide = (i: number): Side => ((i % 2 === 0) === whiteFirst ? 'white' : 'black');
+  /** Was move i played by the user? */
+  const isMine = (i: number) => R.userColor === userSide(i) || R.userColor === 'both';
+  const you: Side = R.userColor === 'black' ? 'black' : 'white';
+
+  let ply = 0;
+  let mode: 'summary' | 'review' = 'summary';
+  /** A "Retry" challenge: find a good move in position `ply`. */
+  let retry: { ply: number; mode: 'better' | 'find' | 'punish'; hints: number } | null = null;
   let auto = false;
   let autoTimer = 0;
-  let onlyMine = false;
-  const AUTO_MS = 1200;
-  const coachSlot = h('div.coach-slot');
-  const autoBtn = h('button.btn.primary.auto-btn', { onclick: () => (auto ? stopAuto() : startAuto()) }, '▶ Play');
-  const evalBar = h('div.evalbar', h('div.evalfill'), h('span.evaltext'));
+  let alsoTheirs = false;
+  let anim: AbortController | null = null;
+  /** the guided play just paused here: offer Continue instead of Next */
+  let fromPause = false;
+  const moments = new Map<number, Moment>();
+  const AUTO_MS = 1100;
+
+  // ---------------------------------------------------------------- pieces of the screen
+  const evalBar = new EvalBar();
+  const nameOf = (side: Side) => displayName(side === 'white' ? R.white : R.black);
+  const avatarOf = (side: Side): string | Node | undefined => {
+    const n = side === 'white' ? R.white : R.black;
+    if (R.userColor === side || n === 'You') return userAvatar();
+    return BOTS.find((b) => n.startsWith(b.name))?.avatar;
+  };
+  const cards: Record<Side, PlayerCard> = {
+    white: new PlayerCard({ name: nameOf('white'), rating: ratingInName(R.white) ?? undefined, avatar: avatarOf('white'), color: 'white' }),
+    black: new PlayerCard({ name: nameOf('black'), rating: ratingInName(R.black) ?? undefined, avatar: avatarOf('black'), color: 'black' }),
+  };
+  const topSlot = h('div.rv-card-slot');
+  const bottomSlot = h('div.rv-card-slot');
+  const boardArea = h('div.board-area', evalBar.el, board.el);
+  const boardCol = h('div.rv-board', topSlot, boardArea, bottomSlot);
+
+  const coach = new Coach(board, { compact: true });
+  const explainBtn = h('button.btn.ghost.rv-explain', { type: 'button', onclick: () => explainStepByStep() }, icon('learn'), 'Explain step by step');
+  const coachBox = h('div.rv-coach', coach.el, explainBtn);
+  const moveList = new MoveList((i) => show(i + 1), { strip: true });
+  const playBtn = h('button.rv-ctl.play', { type: 'button', 'aria-label': 'Play through the game', onclick: () => (auto ? stopAuto() : startAuto()) }, icon('play_arrow'));
+  const ctrl = h(
+    'div.rv-ctrl',
+    h('button.rv-ctl', { type: 'button', 'aria-label': 'First move', onclick: () => show(0) }, icon('first')),
+    h('button.rv-ctl', { type: 'button', 'aria-label': 'Previous move', onclick: () => show(ply - 1) }, icon('prev')),
+    playBtn,
+    h('button.rv-ctl', { type: 'button', 'aria-label': 'Next move', onclick: () => show(ply + 1) }, icon('next')),
+    h('button.rv-ctl', { type: 'button', 'aria-label': 'Last move', onclick: () => show(fens.length - 1) }, icon('last')),
+    h('button.rv-ctl', { type: 'button', 'aria-label': 'Flip board', onclick: () => (board.flip(), placeCards(), renderBar()) }, icon('flip')),
+  );
   const wdlBar = h('div.wdlbar', { 'aria-label': 'Winning chances' }, h('div.wdl-w', h('span')), h('div.wdl-d', h('span')), h('div.wdl-b', h('span')));
-  let planToken = 0;
-  const graph = h('div.graph');
-  const detail = h('div.review-detail');
-  const moveList = h('div.movelist.review');
-  const summary = h('div.review-summary');
-  const moments = h('div.moments');
-  const progress = h('div.progress-line');
+  const moreBody = h('div.rv-more-body');
+  const more = h('details.rv-more', { open: !!mq('(min-width: 900px)')?.matches }, h('summary', icon('analysis'), 'Engine & plan'), moreBody);
+  const reviewPanel = h('div.rv-review', coachBox, moveList.el, ctrl, more);
+  const summaryPanel = h('div.rv-summary');
+  const page = h(
+    'div.page.review.rv',
+    h(
+      'header.rv-head',
+      h('a.icon-btn', { href: '#/games', 'aria-label': 'Back to games' }, icon('back')),
+      h('div.grow', h('h1', 'Game Review'), h('div.rv-sub', `${nameOf('white')} vs ${nameOf('black')} · ${R.result} · ${new Date(R.date).toLocaleDateString()}`)),
+      h('button.icon-btn.rv-summary-btn', { type: 'button', 'aria-label': 'Report card', onclick: () => setMode('summary') }, icon('chart')),
+      h('button.icon-btn', { type: 'button', 'aria-label': 'Download PGN', onclick: () => download(`chess-seeker-${R.id}.pgn`, toPgn(R)) }, downloadIcon()),
+    ),
+    h('div.rv-layout', boardCol, summaryPanel, reviewPanel),
+  );
 
-  const userSide = (i: number) => (i % 2 === 0) === (new Chess(rec.startFen).turn() === 'w') ? 'white' : 'black';
+  // desktop gets the two-column move table, phones the strip
+  const wide = mq('(min-width: 900px)');
+  const applyWide = () => moveList.el.classList.toggle('strip', !wide?.matches);
+  applyWide();
+  wide?.addEventListener('change', applyWide);
 
-  function show(p: number, fromAuto = false) {
-    if (!fromAuto) stopAuto();
-    coachSlot.replaceChildren();
-    retry = null;
-    planToken++;
-    ply = Math.max(0, Math.min(p, fens.length - 1));
-    board.set(fens[ply], { lastMove: lastMoves[ply] });
-    board.clearAnnotations();
-    renderDetail();
-    renderEvalBar();
-    moveList.querySelectorAll('.mv').forEach((e) => e.classList.toggle('on', Number((e as HTMLElement).dataset.ply) === ply));
-    graph.querySelector('.cursor')?.setAttribute('x1', String(ply));
-    graph.querySelector('.cursor')?.setAttribute('x2', String(ply));
+  function setMode(m: 'summary' | 'review') {
+    mode = m;
+    page.classList.toggle('mode-summary', m === 'summary');
+    page.classList.toggle('mode-review', m === 'review');
+    if (m === 'summary') {
+      stopAuto();
+      abortAnim();
+      renderSummary();
+    }
   }
 
-  function renderEvalBar() {
-    const a = rec!.analysis;
+  function placeCards() {
+    const flipped = board.orientation === 'black';
+    topSlot.replaceChildren(cards[flipped ? 'white' : 'black'].el);
+    bottomSlot.replaceChildren(cards[flipped ? 'black' : 'white'].el);
+  }
+
+  function renderMaterial(fen: string) {
+    const m = materialFromFen(fen);
+    cards.white.setCaptured(m.whiteTook, 'black', m.lead);
+    cards.black.setCaptured(m.blackTook, 'white', -m.lead);
+    const turn = new Chess(fen).turn();
+    cards.white.setTurn(turn === 'w');
+    cards.black.setTurn(turn === 'b');
+  }
+
+  function renderBar() {
+    const a = R.analysis;
     const cp = ply === 0 ? 20 : a?.[ply - 1]?.cp ?? 0;
     const mate = ply === 0 ? null : a?.[ply - 1]?.mate ?? null;
-    const w = a ? winPct(cp) : 50;
-    (evalBar.firstChild as HTMLElement).style.height = `${w}%`;
-    (evalBar.lastChild as HTMLElement).textContent = a ? fmtEval(cp, mate) : '';
-    evalBar.classList.toggle('flipped', board.cg.state.orientation === 'black');
+    evalBar.set(a ? cp : 0, a ? mate : null, board.orientation === 'black');
     renderWdl();
   }
 
-  const wdlAt = (p: number): WDL | undefined => (p === 0 ? rec!.startWdl : rec!.analysis?.[p - 1]?.wdl);
+  const wdlAt = (p: number): WDL | undefined => (p === 0 ? R.startWdl : R.analysis?.[p - 1]?.wdl);
 
   /** Broadcast-style White / Draw / Black bar. */
   function renderWdl() {
@@ -198,208 +296,50 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     });
   }
 
-  function techniqueChips(title: string, motifs: Motif[]) {
-    const real = motifs.filter((m) => lessonById(m.lesson));
-    if (!real.length) return null;
-    return h('div.technique', h('span.small.muted', title), ...real.map((m) => h('a.chip.tech', { href: `#/lesson/${m.lesson}` }, `🎓 ${m.label}`)));
+  /** How the coach refers to the other side when talking about move i. */
+  function oppName(i: number): string {
+    const mover = userSide(i);
+    if (R.userColor === 'both') return nameOf(mover === 'white' ? 'black' : 'white');
+    return nameOf(R.userColor === 'white' ? 'black' : 'white');
   }
 
-  /** Animate a SAN line on the board from position `from`, then offer to go back. */
-  async function playPlan(from: number, sans: string[]) {
-    const token = ++planToken;
-    const g = new Chess(fens[from]);
-    board.set(g.fen(), { lastMove: lastMoves[from] });
-    board.clearAnnotations();
-    for (const san of sans) {
-      await new Promise((r) => setTimeout(r, 850));
-      if (token !== planToken) return;
-      let m;
-      try {
-        m = g.move(san);
-      } catch {
-        break;
-      }
-      board.playMove(g.fen(), m.from, m.to, !!m.captured);
-      board.arrows([arrow(m.from + m.to, 'blue')]);
-    }
-    if (token === planToken) detail.append(h('button.btn.ghost', { onclick: () => show(ply) }, '↺ Back to the game position'));
+  function momentInput(i: number): MomentInput {
+    const a = R.analysis![i];
+    const next = R.analysis![i + 1];
+    const pov = userSide(i) === 'white' ? 1 : -1;
+    return {
+      fen: fens[i],
+      san: R.sans[i],
+      cls: a.cls,
+      mine: isMine(i),
+      opp: oppName(i),
+      best: a.best || undefined,
+      bestPv: a.bestPv,
+      replyPv: next?.bestPv ?? [],
+      matedIn: a.mate !== null && a.mate * pov < 0 ? Math.abs(a.mate) : null,
+      prevSan: R.sans[i - 1],
+      prevLastMove: lastMoves[i],
+    };
   }
 
-  function renderDetail() {
-    const a = rec!.analysis;
-    if (ply === 0) {
-      detail.replaceChildren(h('p.muted', 'Starting position. Step through the moves with ◀ ▶ or tap a move.'));
-      return;
-    }
-    const i = ply - 1;
-    const san = rec!.sans[i];
-    const side = userSide(i);
-    const who = rec!.userColor === side || rec!.userColor === 'both' ? 'You' : side === 'white' ? rec!.white : rec!.black;
-    const moveNo = `${Math.floor(i / 2) + 1}${side === 'white' ? '.' : '…'}`;
-    if (!a) {
-      detail.replaceChildren(h('p', `${moveNo} ${san}`));
-      return;
-    }
-    const m = a[i];
-    const played = new Chess(fens[i]).move(san);
-    const playedUci = played.from + played.to + (played.promotion ?? '');
-    const bestUci = m.best ? sanLineToUci(fens[i], [m.best])[0] : '';
-    const reasons = describeMove(fens[i], played).filter((r) => r !== 'improves the position');
-    const why = reasons.length ? reasons.join('; ') : 'keeps the position in good shape';
-    const bestWhy = () => explainBest(fens[i], bestUci, sanLineToUci(fens[i], m.bestPv)).replace(/^\*\*.+?\*\* /, '');
-    const retryRow = () =>
-      h('div.row.wrap', h('button.btn', { onclick: () => showBest(i) }, 'Show best move'), h('button.btn.primary', { onclick: () => startRetry(i) }, '↻ Retry this moment'));
-    const parts: (HTMLElement | null)[] = [h('div.row', h(`span.cls.${m.cls}`, CLS_LABEL[m.cls]), h('strong', `${moveNo} ${san}`), h('span.muted.small', `by ${who}`))];
-    switch (m.cls) {
-      case 'brilliant':
-        parts.push(rich(`**Brilliant!** ${san} sacrifices the ${NAME[played.piece]} on ${played.to} — it can be taken, but Stockfish confirms the sacrifice works. The move ${why}.`));
-        if (m.bestPv.length > 1) parts.push(rich(`The idea: ${formatLine(fens[i], m.bestPv.slice(0, 6))}.`));
-        board.arrows([arrow(playedUci, 'blue')]);
-        break;
-      case 'great':
-        parts.push(rich(`**Great move — the only good one here.** ${san} ${why}.${m.second ? ` The next-best option, ${m.second}, would have cost about ${m.secondLoss}% winning chances.` : ''}`));
-        board.arrows([arrow(playedUci, 'blue')]);
-        break;
-      case 'best':
-      case 'excellent':
-      case 'good':
-      case 'book':
-        parts.push(rich(`**Why it works:** ${san} ${why}.`));
-        if (m.cls !== 'best' && m.cls !== 'book' && m.best && m.best !== san) {
-          parts.push(rich(`Stockfish slightly preferred **${m.best}** — it ${bestWhy()}`));
-          board.arrows([arrow(playedUci, 'green'), arrow(bestUci, 'blue')]);
-        } else board.arrows([arrow(playedUci, 'green')]);
-        break;
-      case 'miss': {
-        const prevSan = rec!.sans[i - 1];
-        parts.push(rich(`**Missed chance.** Your opponent's ${prevSan} was a mistake, but ${san} lets them off the hook.`));
-        if (m.best) parts.push(rich(`**${m.best} would have punished it** — it ${bestWhy()}`), retryRow());
-        board.arrows([arrow(playedUci, 'red'), ...(bestUci ? [arrow(bestUci, 'green')] : [])]);
-        break;
-      }
-      default: {
-        // inaccuracy / mistake / blunder — the opponent's best reply is the engine's line from the next position.
-        const replyPv = sanLineToUci(fens[ply], a[i + 1]?.bestPv ?? []);
-        const pov = side === 'white' ? 1 : -1;
-        const oppMate = m.mate !== null && m.mate * pov < 0 ? Math.abs(m.mate) : null;
-        parts.push(rich(`**Why it's ${m.cls === 'inaccuracy' ? 'an' : 'a'} ${m.cls}:** ${explainMistake(fens[i], played, replyPv, oppMate)}`));
-        if (m.best) parts.push(rich(`**Better was ${m.best}** — it ${bestWhy()}`), retryRow());
-        board.arrows([arrow(playedUci, 'red'), ...(bestUci ? [arrow(bestUci, 'green')] : [])]);
-      }
-    }
-    // Winning-chances swing for the side that moved.
-    const wBefore = wdlAt(i);
-    const wAfter = m.wdl;
-    if (wBefore && wAfter) {
-      // overall chances = win + half of the draws
-      const chance = (w: WDL) => Math.round((side === 'white' ? w[0] + w[1] / 2 : w[2] + w[1] / 2) / 10);
-      const [b, a2] = [chance(wBefore), chance(wAfter)];
-      const d = a2 - b;
-      parts.push(
-        h(`p.swing${d > 2 ? '.up' : d < -2 ? '.down' : ''}`, `📈 ${side === 'white' ? 'White' : 'Black'}'s chances: ${b}% → ${a2}% `, h('strong', d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${-d}` : '±0')),
-      );
-    }
-    // Technique behind the move (or behind its refutation / the better move).
-    const isError = m.cls === 'inaccuracy' || m.cls === 'mistake' || m.cls === 'blunder' || m.cls === 'miss';
-    const next = a[i + 1];
-    const nextBestMove = next?.best ? safeMove(fens[ply], next.best) : null;
-    if (!isError) parts.push(techniqueChips('Technique used:', motifsOf(fens[i], played)));
-    else {
-      if (next && m.cls !== 'miss') parts.push(techniqueChips('Opponent can punish with:', lineMotifs(fens[ply], next.bestPv.slice(0, 5))));
-      const betterMove = m.best ? safeMove(fens[i], m.best) : null;
-      if (betterMove) parts.push(techniqueChips('The better move uses:', motifsOf(fens[i], betterMove)));
-    }
-    // How to continue from here.
-    if (next && nextBestMove && !new Chess(fens[ply]).isGameOver()) {
-      const toMove = side === 'white' ? 'Black' : 'White';
-      const line = next.bestPv;
-      const follow = line[1] ? safeMove(playedFen(fens[ply], [line[0]]), line[1]) : null;
-      const replyIdeas = describeMove(fens[ply], nextBestMove).filter((r) => r !== 'improves the position');
-      const followIdeas = follow ? describeMove(playedFen(fens[ply], [line[0]]), follow).filter((r) => r !== 'improves the position') : [];
-      const text =
-        `**🧭 How to continue:** ${toMove} to move. The best reply is **${line[0]}**${replyIdeas.length ? ` — it ${replyIdeas[0]}` : ''}.` +
-        (follow ? ` Then ${side === 'white' ? 'White' : 'Black'} continues with **${follow.san}**${followIdeas.length ? `, which ${followIdeas[0]}` : ''}.` : '') +
-        (line.length > 2 ? ` Main line: ${formatLine(fens[ply], line.slice(0, 6))}.` : '');
-      parts.push(
-        h('div.plan-box', rich(text), h('div.row.wrap', h('button.btn', { onclick: () => void playPlan(ply, line.slice(0, 6)) }, isError ? '▶ Show the punishment' : '▶ Play the plan'))),
-      );
-      if (!isError && follow) parts.push(techniqueChips('Next idea:', motifsOf(playedFen(fens[ply], [line[0]]), follow)));
-    }
-    parts.push(h('p.small.muted', `Evaluation after the move: ${fmtEval(m.cp, m.mate)}`));
-    detail.replaceChildren(...parts.filter(Boolean) as HTMLElement[]);
+  function momentAt(i: number): Moment {
+    let m = moments.get(i);
+    if (!m) moments.set(i, (m = describeMoment(momentInput(i))));
+    return m;
   }
 
-  function showBest(i: number) {
-    const m = rec!.analysis![i];
-    board.set(fens[i]);
-    board.arrows([arrow(sanLineToUci(fens[i], [m.best])[0], 'green')]);
-    detail.append(rich(`Best line: ${formatLine(fens[i], m.bestPv)}`));
-  }
-
-  function startRetry(i: number, mode: 'better' | 'find' | 'punish' = 'better') {
-    stopAuto();
-    coachSlot.replaceChildren();
-    retry = { ply: i, mode };
-    const side = new Chess(fens[i]).turn() === 'w' ? 'white' : 'black';
-    board.set(fens[i], { movable: side, lastMove: lastMoves[i], orientation: board.cg.state.orientation });
-    board.clearAnnotations();
-    const prompt =
-      mode === 'better'
-        ? `🎯 Your turn: find a better move than ${rec!.sans[i]}.`
-        : mode === 'find'
-          ? `🎯 Can you find the ${rec!.analysis![i].cls} move ${side === 'white' ? 'White' : 'Black'} played here?`
-          : `🎯 Your opponent just erred. Find the move that punishes it!`;
-    detail.replaceChildren(h('div.banner.info', prompt), h('p.small.muted', `${side === 'white' ? 'White' : 'Black'} to move — drag a piece on the board.`), h('div.row', h('button.btn', { onclick: () => showBest(i) }, 'Show me'), h('button.btn.ghost', { onclick: () => resumeAfter(i) }, 'Skip ›')));
-  }
-
-  /** Continue the guided review after a challenge on position `i`. */
-  function resumeAfter(i: number) {
-    show(Math.min(i + 1, fens.length - 1));
-    startAuto();
-  }
-
-  async function onRetryMove(mv: { from: string; to: string; promotion?: string }) {
-    if (!retry) return;
-    const { ply: i, mode } = retry;
-    const g = new Chess(fens[i]);
-    let m;
-    try {
-      m = g.move(mv);
-    } catch {
-      return startRetry(i, mode);
-    }
-    board.set(g.fen(), { lastMove: [m.from, m.to] });
-    detail.replaceChildren(h('div.banner.subtle', 'Checking…'));
-    const r = await engine.analyse(g.fen(), { depth: 13 });
-    const pov = g.turn() === 'w' ? -1 : 1; // mover's POV
-    const after = r.lines[0] ? -scoreNum(r.lines[0]) : 0;
-    const bestWhite = i === 0 ? 20 : rec!.analysis![i - 1]?.cp ?? 0;
-    const lossNow = winPct(pov * bestWhite) - winPct(after);
-    const played = m.san === rec!.sans[i];
-    const ok = g.isCheckmate() || (mode === 'better' ? lossNow <= Math.max(4, rec!.analysis![i].winLoss / 3) && !played : lossNow <= 3 || (mode === 'find' && played));
-    const uci = m.from + m.to + (m.promotion ?? '');
-    const cont = h('button.btn.primary', { onclick: () => resumeAfter(i) }, '▶ Continue review');
-    if (ok) {
-      playSound('good');
-      const msg = mode === 'better' ? `✓ ${m.san} — much better!` : mode === 'find' ? `✓ ${m.san} — you found it!` : `✓ ${m.san} — punished!`;
-      detail.replaceChildren(h('div.banner.good', msg), rich(explainBest(fens[i], uci, r.lines[0] ? [uci, ...r.lines[0].pv] : [])), h('div.row.wrap', cont));
-    } else {
-      playSound('bad');
-      const msg = mode === 'better' && played ? `That's the move from the game — look for something better.` : `${m.san} isn't it.`;
-      detail.replaceChildren(h('div.banner.bad', msg), h('div.row.wrap', h('button.btn.primary', { onclick: () => startRetry(i, mode) }, 'Try again'), h('button.btn', { onclick: () => showBest(i) }, 'Show me'), h('button.btn.ghost', { onclick: () => resumeAfter(i) }, 'Skip ›')));
-    }
-  }
-
-  // ---------------------------------------------------------------- guided review
+  // ---------------------------------------------------------------- key moments (where guided play pauses)
   const PAUSE_CLASSES = new Set<MoveClass>(['brilliant', 'great', 'inaccuracy', 'mistake', 'miss', 'blunder']);
-  const isMine = (i: number) => rec!.userColor === userSide(i) || rec!.userColor === 'both';
 
-  /** Should the guided review stop after move i? */
+  /** Your errors and great moves, big swings in your moves, and the opponent's mistakes (your chances). */
   function isHighlight(i: number): boolean {
-    const m = rec!.analysis?.[i];
+    const m = R.analysis?.[i];
     if (!m) return false;
-    if (onlyMine && !isMine(i)) return false;
-    if (PAUSE_CLASSES.has(m.cls)) return !(m.cls === 'inaccuracy' && !isMine(i));
+    if (!isMine(i)) {
+      if (m.cls === 'mistake' || m.cls === 'blunder') return true;
+      return alsoTheirs && (m.cls === 'brilliant' || m.cls === 'great' || m.cls === 'miss');
+    }
+    if (PAUSE_CLASSES.has(m.cls)) return true;
     const before = wdlAt(i);
     if (before && m.wdl) {
       const k = userSide(i) === 'white' ? 0 : 2;
@@ -409,169 +349,553 @@ export async function reviewView([idStr]: string[]): Promise<View> {
     return false;
   }
 
+  const nextKey = (from: number) => {
+    for (let i = from; i < R.sans.length; i++) if (isHighlight(i)) return i + 1;
+    return -1;
+  };
+
+  // ---------------------------------------------------------------- showing a move
+  function abortAnim() {
+    anim?.abort();
+    anim = null;
+    coach.stop();
+  }
+
+  function show(p: number, fromAuto = false) {
+    if (mode !== 'review') setMode('review');
+    if (!fromAuto) stopAuto();
+    abortAnim();
+    retry = null;
+    ply = Math.max(0, Math.min(p, fens.length - 1));
+    board.set(fens[ply], { lastMove: lastMoves[ply] });
+    board.highlight({});
+    board.arrows([]);
+    board.badge(null);
+    renderMaterial(fens[ply]);
+    renderBar();
+    moveList.select(ply - 1);
+    graphs.forEach((g) => g.set(ply, R.sans.length));
+    explainBtn.hidden = true;
+    if (!R.analysis) {
+      coach.say(ply === 0 ? 'Starting position.' : `Move ${R.sans[ply - 1]}.`, 'thinking');
+      coach.setActions([]);
+      return;
+    }
+    renderMoment();
+    renderMore();
+  }
+
+  function renderMoment() {
+    if (ply === 0) {
+      coach.say(`Let's go through the game. Tap **Next** to jump to the key moments, or play it through.`, 'happy');
+      coach.setActions([
+        { label: 'Play', icon: 'play_arrow', onclick: () => startAuto() },
+        { label: 'Next', icon: 'next', primary: true, onclick: () => goNextKey() },
+      ]);
+      return;
+    }
+    const i = ply - 1;
+    const a = R.analysis![i];
+    const mo = momentAt(i);
+    const to = lastMoves[ply]![1];
+    board.badge(to, a.cls);
+    if (mo.arrows.length) board.arrows(mo.arrows);
+    if (mo.flash.length) board.flash(mo.flash, isMine(i) ? 'red' : 'yellow', 1600);
+    coach.say(mo.line, mo.mood, { title: badgeTitle(a.cls, mo.title), fen: fens[ply] });
+    coach.setActions(auto ? [] : momentActions(i, mo));
+    explainBtn.hidden = !(ERRORS.has(a.cls) || a.cls === 'miss' || a.cls === 'brilliant' || a.cls === 'great' || isHighlight(i));
+    if (ply === fens.length - 1 && !auto) endOfGame(false);
+  }
+
+  function momentActions(i: number, mo: Moment): CoachAction[] {
+    const acts: CoachAction[] = [];
+    if (mo.best) acts.push({ label: 'Best', icon: 'check', onclick: () => void showBest(i) });
+    if (mo.show) acts.push({ label: mo.show.label, icon: 'eye', onclick: () => void showLine(i, mo) });
+    if (mo.retry) acts.push({ label: 'Retry', icon: 'replay', onclick: () => startRetry(mo.retry === 'punish' && !isMine(i) ? i + 1 : i, mo.retry!) });
+    const nk = nextKey(i + 1);
+    if (fromPause) acts.push({ label: 'Continue', icon: 'play_arrow', primary: true, onclick: () => startAuto() });
+    else if (nk > 0) acts.push({ label: 'Next', icon: 'next', primary: true, onclick: () => goNextKey() });
+    else if (ply < fens.length - 1) acts.push({ label: 'Next', icon: 'next', primary: true, onclick: () => show(ply + 1) });
+    return acts;
+  }
+
+  function goNextKey() {
+    fromPause = false;
+    const nk = nextKey(ply);
+    show(nk > 0 ? nk : fens.length - 1);
+  }
+
+  function backToMove(i: number): CoachAction {
+    return { label: 'Back', icon: 'undo', onclick: () => show(i + 1) };
+  }
+
+  /** "Best": animate the engine's move from the position before, and say why. */
+  async function showBest(i: number) {
+    stopAuto();
+    abortAnim();
+    const mo = momentAt(i);
+    if (!mo.best) return;
+    const ctrlr = (anim = new AbortController());
+    board.badge(null);
+    board.arrows([]);
+    board.set(fens[i], { lastMove: lastMoves[i] });
+    coach.say(mo.best.text, 'happy', { title: badgeTitle('best', `${mo.best.san} is best`), fen: fens[i] });
+    coach.setActions([backToMove(i), nextAction()]);
+    await sleep(300);
+    if (ctrlr.signal.aborted) return;
+    const ok = await board.playLine(fens[i], [mo.best.san], { signal: ctrlr.signal, brush: 'green' });
+    if (!ok) return;
+    const m = new Chess(fens[i]).move(mo.best.san);
+    board.arrows([arrow(m.from + m.to, 'green')]);
+    board.badge(m.to, 'best');
+  }
+
+  function nextAction(): CoachAction {
+    const nk = nextKey(ply);
+    return { label: 'Next', icon: 'next', primary: true, onclick: () => (nk > 0 ? goNextKey() : show(ply + 1)) };
+  }
+
+  /** "Show …": animate the follow-up (punishment, missed win, idea), narrating as it plays. */
+  async function showLine(i: number, mo: Moment) {
+    if (!mo.show) return;
+    stopAuto();
+    abortAnim();
+    const ctrlr = (anim = new AbortController());
+    const s = mo.show;
+    const start = s.from === 'before' ? fens[i] : fens[i + 1];
+    board.badge(null);
+    board.arrows([]);
+    board.set(start, { lastMove: s.from === 'before' ? lastMoves[i] : lastMoves[i + 1] });
+    coach.say(s.intro, mo.mood, { title: badgeTitle(null, s.label.replace(/^Show /, '')), fen: start });
+    coach.setActions([backToMove(i), nextAction()]);
+    await sleep(450);
+    if (ctrlr.signal.aborted) return;
+    const ok = await board.playLine(start, s.sans, { signal: ctrlr.signal, onStep: (_k, _m, fen) => renderMaterial(fen) });
+    if (!ok) return;
+    if (s.outro) coach.say(`${s.intro} ${s.outro}`, mo.mood, { title: badgeTitle(null, s.label.replace(/^Show /, '')), fen: start });
+    coach.setActions([{ label: 'Replay', icon: 'replay', onclick: () => void showLine(i, mo) }, backToMove(i), nextAction()]);
+  }
+
+  /** "Explain step by step": the walkthrough drives the board; Done returns to the move. */
+  function explainStepByStep() {
+    if (ply === 0 || !R.analysis) return;
+    stopAuto();
+    abortAnim();
+    const i = ply - 1;
+    const steps = narrateMoment(momentInput(i), momentAt(i));
+    if (!steps.length) return;
+    explainBtn.hidden = true;
+    coach.setActions([]);
+    coach.narrate(steps, { startFen: fens[i], onExit: () => show(i + 1) });
+  }
+
+  // ---------------------------------------------------------------- Retry ("play it yourself")
+  function startRetry(i: number, m: 'better' | 'find' | 'punish' = 'better') {
+    stopAuto();
+    abortAnim();
+    retry = { ply: i, mode: m, hints: 0 };
+    const side = new Chess(fens[i]).turn() === 'w' ? 'white' : 'black';
+    board.badge(null);
+    board.arrows([]);
+    board.set(fens[i], { movable: side, lastMove: lastMoves[i] });
+    explainBtn.hidden = true;
+    const prompt =
+      m === 'better'
+        ? `Your turn. Find a better move than ${R.sans[i]}.`
+        : m === 'find'
+          ? `Can you find the ${R.analysis![i].cls} move here?`
+          : `There's a way to punish the last move. Find it!`;
+    coach.say(prompt, 'thinking', { title: badgeTitle(null, `${side === 'white' ? 'White' : 'Black'} to move`), fen: fens[i] });
+    coach.setActions(retryActions(i));
+  }
+
+  function retryActions(i: number): CoachAction[] {
+    return [
+      { label: 'Hint', icon: 'hint', onclick: () => hint(i) },
+      { label: 'Show me', icon: 'eye', onclick: () => void solveRetry(i) },
+      { label: 'Skip', icon: 'next', onclick: () => resumeAfter(i) },
+    ];
+  }
+
+  function retryAnswer(i: number): string | null {
+    const a = R.analysis![i];
+    if (retry?.mode === 'find') return R.sans[i];
+    return a.best || null;
+  }
+
+  /** First hint: circle the piece to move. Second: the full arrow. */
+  function hint(i: number) {
+    const san = retryAnswer(i);
+    if (!san || !retry) return;
+    const m = new Chess(fens[i]).move(san);
+    retry.hints++;
+    if (retry.hints === 1) {
+      board.arrows([arrow(m.from + m.from, 'yellow')]);
+      board.flash([m.from], 'yellow', 1400);
+      coach.say(`Try a move with this ${pieceWord(m.piece)}.`, 'thinking', { fen: fens[i] });
+    } else {
+      board.arrows([arrow(m.from + m.to, 'yellow')]);
+      coach.say(`Move it here. ${ideaHint(i, san)}`, 'thinking', { fen: fens[i] });
+    }
+    coach.setActions(retryActions(i));
+  }
+
+  const pieceWord = (p: string) => ({ p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' })[p] ?? 'piece';
+  const ideaHint = (i: number, san: string) => {
+    const idea = ideaOf(fens[i], san, new Chess(fens[i]).turn());
+    return idea ? `It ${idea}.` : '';
+  };
+
+  async function solveRetry(i: number) {
+    const san = retryAnswer(i);
+    if (!san) return resumeAfter(i);
+    retry = null;
+    abortAnim();
+    const ctrlr = (anim = new AbortController());
+    board.set(fens[i], { lastMove: lastMoves[i] });
+    const line = retryAnswerLine(i, san);
+    coach.say(`The move is ${san}. ${ideaHint(i, san)}`, 'happy', { title: badgeTitle('best', 'Solution'), fen: fens[i] });
+    coach.setActions([{ label: 'Continue', icon: 'play_arrow', primary: true, onclick: () => resumeAfter(i) }]);
+    await sleep(300);
+    if (ctrlr.signal.aborted) return;
+    await board.playLine(fens[i], line, { signal: ctrlr.signal });
+  }
+
+  function retryAnswerLine(i: number, san: string): string[] {
+    const a = R.analysis![i];
+    if (a.bestPv[0] === san) return a.bestPv.slice(0, 3);
+    return [san];
+  }
+
+  /** Continue the review after a challenge on position `i`. */
+  function resumeAfter(i: number) {
+    retry = null;
+    show(Math.min(i + 1, fens.length - 1));
+  }
+
+  async function onRetryMove(mv: { from: string; to: string; promotion?: string }) {
+    if (!retry) return;
+    const { ply: i, mode: m } = retry;
+    const g = new Chess(fens[i]);
+    let played;
+    try {
+      played = g.move(mv);
+    } catch {
+      return startRetry(i, m);
+    }
+    board.set(g.fen(), { lastMove: [played.from, played.to] });
+    coach.say('Checking…', 'thinking');
+    coach.setActions([]);
+    const r = await engine.analyse(g.fen(), { depth: 13 });
+    if (retry?.ply !== i || retry.mode !== m) return; // the user stepped elsewhere meanwhile
+    const pov = g.turn() === 'w' ? -1 : 1; // mover's POV
+    const after = r.lines[0] ? -scoreNum(r.lines[0]) : 0;
+    const bestWhite = i === 0 ? 20 : R.analysis![i - 1]?.cp ?? 0;
+    const lossNow = winPct(pov * bestWhite) - winPct(after);
+    const same = played.san === R.sans[i];
+    const ok = g.isCheckmate() || (m === 'better' ? lossNow <= Math.max(4, R.analysis![i].winLoss / 3) && !same : lossNow <= 3 || (m === 'find' && same));
+    if (ok) {
+      playSound('good');
+      board.badge(played.to, 'best');
+      const idea = ideaOf(fens[i], played.san, played.color);
+      coach.say(`${played.san}${idea ? ` ${idea}` : ''}. Well done!`, 'excited', { title: badgeTitle('best', 'Correct!'), fen: fens[i] });
+      coach.setActions([{ label: 'Continue', icon: 'play_arrow', primary: true, onclick: () => resumeAfter(i) }]);
+    } else {
+      playSound('bad');
+      board.badge(played.to, lossNow > 20 ? 'blunder' : 'mistake');
+      coach.say(m === 'better' && same ? `That's the move from the game. Look for something better.` : `${played.san} isn't it. Try again?`, 'thinking', { fen: fens[i] });
+      coach.setActions([{ label: 'Try again', icon: 'replay', primary: true, onclick: () => startRetry(i, m) }, ...retryActions(i).slice(0, 2)]);
+    }
+  }
+
+  // ---------------------------------------------------------------- guided play
   function stopAuto() {
     auto = false;
     clearTimeout(autoTimer);
-    autoBtn.textContent = '▶ Play';
+    playBtn.replaceChildren(icon('play_arrow'));
+    playBtn.classList.remove('on');
   }
 
   function startAuto() {
-    if (!rec!.analysis) return;
+    if (!R.analysis) return;
+    if (mode !== 'review') setMode('review');
     if (ply >= fens.length - 1) show(0);
+    abortAnim();
+    fromPause = false;
     auto = true;
-    coachSlot.replaceChildren();
-    autoBtn.textContent = '⏸ Pause';
-    autoTimer = window.setTimeout(autoStep, 700);
+    playBtn.replaceChildren(icon('pause'));
+    playBtn.classList.add('on');
+    autoTimer = window.setTimeout(autoStep, 500);
   }
 
   function autoStep() {
     if (!auto) return;
     if (ply >= fens.length - 1) {
       stopAuto();
-      coachSlot.replaceChildren(h('div.coach-card.done', h('strong', '🏁 Review complete'), h('p.small', 'Check your key moments and accuracy below, or tap any move to revisit it.')));
+      endOfGame(true);
       return;
     }
     show(ply + 1, true);
-    const san = rec!.sans[ply - 1];
-    playSound(san.includes('x') ? 'capture' : san.includes('+') ? 'check' : 'move');
+    const san = R.sans[ply - 1];
+    playSound(san.includes('#') || san.includes('+') ? 'check' : san.includes('x') ? 'capture' : 'move');
     if (isHighlight(ply - 1)) {
       stopAuto();
-      renderCoachCard(ply - 1);
+      fromPause = true;
+      coach.setActions(momentActions(ply - 1, momentAt(ply - 1)));
+      fromPause = false;
     } else autoTimer = window.setTimeout(autoStep, AUTO_MS);
   }
 
-  /** Duolingo-style pause card at a highlight moment. */
-  function renderCoachCard(i: number) {
-    const m = rec!.analysis![i];
-    const mine = isMine(i);
-    const titles: Partial<Record<MoveClass, string>> = {
-      brilliant: '💎 Brilliant move!',
-      great: '🔥 Great move!',
-      inaccuracy: '🤔 Inaccuracy',
-      mistake: '⚠️ Mistake',
-      miss: '😬 Missed chance',
-      blunder: '💥 Blunder!',
-    };
-    const title = titles[m.cls] ?? '📈 Turning point';
-    const who = mine ? 'You' : userSide(i) === 'white' ? rec!.white : rec!.black;
-    const isError = ['inaccuracy', 'mistake', 'miss', 'blunder'].includes(m.cls);
-    const canPunish = isError && !mine && !new Chess(fens[i + 1]).isGameOver() && !!rec!.analysis![i + 1];
-    let tryBtn: HTMLElement | null = null;
-    if (isError && mine && m.best) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'better') }, '🎯 Play the better move');
-    else if (canPunish) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i + 1, 'punish') }, '🎯 Punish it yourself');
-    else if (m.cls === 'brilliant' || m.cls === 'great' || !isError) tryBtn = h('button.btn.primary', { onclick: () => startRetry(i, 'find') }, '🎯 Play this move yourself');
-    const card = h(
-      `div.coach-card.${m.cls}`,
-      h('div.row.between', h('strong.coach-title', title), h('span.small.muted', `${who} · ${Math.floor(i / 2) + 1}${userSide(i) === 'black' ? '…' : '.'} ${rec!.sans[i]}`)),
-      h('div.row.wrap', tryBtn, h('button.btn', { onclick: () => startAuto() }, '▶ Continue')),
-    );
-    coachSlot.replaceChildren(card);
+  async function endOfGame(said: boolean) {
+    const cards = (await loadCards()).filter((c) => c.gameId === R.id);
+    const extra: CoachAction[] = [{ label: 'Report card', icon: 'chart', onclick: () => setMode('summary') }];
+    if (cards.length) extra.unshift({ label: 'Learn from mistakes', icon: 'target', primary: true, onclick: () => (location.hash = '/mistakes') });
+    if (said || ply === fens.length - 1) {
+      if (said)
+        coach.say(
+          cards.length ? `That's the whole game! I saved ${cards.length} of your mistakes as puzzles, so you can practise them.` : `That's the whole game! Nice work going through it.`,
+          'happy',
+          { title: badgeTitle(null, 'Review complete') },
+        );
+      const base = said ? [] : momentActions(ply - 1, momentAt(ply - 1)).filter((a) => a.label !== 'Next');
+      coach.setActions([...base, ...extra]);
+    }
   }
 
-  function renderAll() {
-    const a = rec!.analysis;
-    // move list
-    const cells: HTMLElement[] = [];
-    rec!.sans.forEach((s, i) => {
-      if (i % 2 === 0) cells.push(h('span.mv-no', `${i / 2 + 1}.`));
-      cells.push(h(`span.mv${a ? '.c-' + a[i].cls : ''}`, { 'data-ply': String(i + 1), onclick: () => show(i + 1) }, s));
-    });
-    moveList.replaceChildren(...cells);
+  // ---------------------------------------------------------------- "Engine & plan" section
+  function techniqueChips(title: string, motifs: Motif[]) {
+    const real = motifs.filter((m) => lessonById(m.lesson));
+    if (!real.length) return null;
+    return h('div.technique', h('span.small.muted', title), ...real.map((m) => h('a.chip.tech', { href: `#/lesson/${m.lesson}` }, icon('learn'), m.label)));
+  }
+
+  function renderMore() {
+    const parts: (Node | null)[] = [wdlBar];
+    const a = R.analysis;
+    if (!a || ply === 0) {
+      moreBody.replaceChildren(...(parts.filter(Boolean) as Node[]), alsoToggle());
+      return;
+    }
+    const i = ply - 1;
+    const m = a[i];
+    const next = a[i + 1];
+    const side = userSide(i);
+    const mine = isMine(i);
+    const played = new Chess(fens[i]).move(R.sans[i]);
+    const wBefore = wdlAt(i);
+    if (wBefore && m.wdl) {
+      const forSide = R.userColor === 'both' ? side : R.userColor;
+      const chance = (w: WDL) => Math.round((forSide === 'white' ? w[0] + w[1] / 2 : w[2] + w[1] / 2) / 10);
+      const [b, a2] = [chance(wBefore), chance(m.wdl)];
+      const d = a2 - b;
+      const whose = R.userColor === 'both' ? `${forSide === 'white' ? 'White' : 'Black'}'s` : 'Your';
+      parts.push(h(`p.swing${d > 2 ? '.up' : d < -2 ? '.down' : ''}`, `${whose} chances: ${b}% → ${a2}% `, h('strong', d > 0 ? `+${d}` : d < 0 ? `${d}` : '±0')));
+    }
+    const isError = ERRORS.has(m.cls) || m.cls === 'miss';
+    if (!isError) parts.push(techniqueChips(mine ? 'Technique used:' : `Technique ${oppName(i)} used:`, motifsOf(fens[i], played)));
+    else if (m.cls === 'miss') {
+      const bm = m.best ? safeMove(fens[i], m.best) : null;
+      if (bm) parts.push(techniqueChips(mine ? 'The winning move uses:' : 'The move they missed uses:', motifsOf(fens[i], bm)));
+    } else {
+      if (next) parts.push(techniqueChips(mine ? `${oppName(i)} can punish with:` : 'You can punish with:', lineMotifs(fens[ply], next.bestPv.slice(0, 5))));
+      const bm = mine && m.best ? safeMove(fens[i], m.best) : null;
+      if (bm) parts.push(techniqueChips('The better move uses:', motifsOf(fens[i], bm)));
+    }
+    const gameOver = new Chess(fens[ply]).isGameOver();
+    if (next && next.bestPv.length && !gameOver) {
+      const line = next.bestPv;
+      const toMove = R.userColor === 'both' ? `${side === 'white' ? 'Black' : 'White'} is` : isMine(i + 1) ? 'You are' : `${oppName(i + 1)} is`;
+      const idea = ideaOf(fens[ply], line[0], you === 'white' ? 'w' : 'b');
+      parts.push(
+        h(
+          'div.plan-box',
+          h('div.rv-more-t', icon('target'), 'How to continue'),
+          coachTextLite(`${toMove} to move. Best is ${line[0]}${idea ? `, which ${idea}` : ''}.`),
+          h('button.btn.sm', { type: 'button', onclick: () => void playPlan(ply, line.slice(0, 6)) }, icon('play_arrow'), 'Play the plan'),
+        ),
+      );
+    }
+    if (m.best && m.bestPv.length) parts.push(h('p.small.rv-line', `Engine line: ${formatLine(fens[i], m.bestPv.slice(0, 8))}`));
+    parts.push(h('p.small.muted', `Evaluation after ${R.sans[i]}: ${fmtEval(m.cp, m.mate)}`));
+    parts.push(alsoToggle());
+    moreBody.replaceChildren(...(parts.filter(Boolean) as Node[]));
+  }
+
+  const coachTextLite = (t: string) => h('p.rv-plan-text', t);
+
+  function alsoToggle() {
+    return h(
+      'label.toggle.small-toggle',
+      h('input', { type: 'checkbox', checked: alsoTheirs, onchange: (e: Event) => (alsoTheirs = (e.target as HTMLInputElement).checked) }),
+      h('span', h('strong', 'Also stop at the opponent’s strong moves'), h('small', 'Play stops at your mistakes, your best moves and your chances.')),
+    );
+  }
+
+  /** "Play the plan": animate the engine line from position `from`. */
+  async function playPlan(from: number, sans: string[]) {
+    stopAuto();
+    abortAnim();
+    const ctrlr = (anim = new AbortController());
+    board.badge(null);
+    board.arrows([]);
+    board.set(fens[from], { lastMove: lastMoves[from] });
+    coach.say(`Here's how the game could go on.`, 'thinking', { fen: fens[from] });
+    coach.setActions([{ label: 'Back', icon: 'undo', onclick: () => show(from) }]);
+    await sleep(300);
+    if (ctrlr.signal.aborted) return;
+    await board.playLine(fens[from], sans, { signal: ctrlr.signal, onStep: (_k, _m, fen) => renderMaterial(fen) });
+  }
+
+  // ---------------------------------------------------------------- summary (report card)
+  const graphs: EvalGraph[] = [];
+
+  function renderSummary() {
+    board.set(fens[fens.length - 1], { lastMove: lastMoves[fens.length - 1] });
+    board.badge(null);
+    board.arrows([]);
+    ply = fens.length - 1;
+    renderMaterial(fens[ply]);
+    renderBar();
+    const a = R.analysis;
     if (!a) return;
-    // summary
-    const count = (side: 'white' | 'black', c: MoveClass) => a.filter((m, i) => userSide(i) === side && m.cls === c).length;
-    const row = (c: MoveClass) => h('tr', h('td', h(`span.cls.${c}`, CLS_LABEL[c])), h('td', String(count('white', c))), h('td', String(count('black', c))));
-    summary.replaceChildren(
-      h('div.acc', h('div', h('small', rec!.white), h('strong', `${rec!.accuracy?.white ?? '–'}%`)), h('div', h('small', rec!.black), h('strong', `${rec!.accuracy?.black ?? '–'}%`))),
-      h('table.cls-table', h('tr', h('th', ''), h('th', '⚪'), h('th', '⚫')), ...(['brilliant', 'great', 'best', 'excellent', 'good', 'book', 'inaccuracy', 'mistake', 'miss', 'blunder'] as MoveClass[]).map(row)),
-    );
-    // key moments: the user's errors to learn from, and their best moments
-    const mine = a.map((m, i) => ({ m, i })).filter(({ i }) => rec!.userColor === userSide(i) || rec!.userColor === 'both');
-    const chip = ({ m, i }: { m: MoveAnalysis; i: number }) =>
-      h(`button.chip.c-${m.cls}`, { onclick: () => show(i + 1) }, `${Math.floor(i / 2) + 1}${userSide(i) === 'black' ? '…' : '.'} ${rec!.sans[i]} ${CLS_LABEL[m.cls].split(' ')[0]}`);
-    const errs = mine.filter(({ m }) => m.cls === 'mistake' || m.cls === 'blunder' || m.cls === 'miss');
-    const highs = mine.filter(({ m }) => m.cls === 'brilliant' || m.cls === 'great');
-    setChildren(
-      moments,
-      h('h3', 'Key moments to learn from'),
-      errs.length ? h('div.chips', errs.map(chip)) : h('p.small.muted', 'No mistakes, misses or blunders by you — excellent game!'),
-      highs.length ? h('h3', 'Your best moves') : null,
-      highs.length ? h('div.chips', highs.map(chip)) : null,
-    );
-    // graph (SVG)
-    const W = Math.max(1, a.length);
-    const pts = [0, ...a.map((m) => Math.max(-1000, Math.min(1000, m.cp)))].map((cp, i) => `${i},${50 - (winPct(cp) - 50)}`);
-    graph.innerHTML = `<svg viewBox="0 0 ${W} 100" preserveAspectRatio="none" class="evalgraph"><polygon points="0,100 ${pts.join(' ')} ${W},100" class="white-area"/><polyline points="${pts.join(' ')}" class="line"/><line x1="0" x2="${W}" y1="50" y2="50" class="mid"/><line class="cursor" x1="${ply}" x2="${ply}" y1="0" y2="100"/></svg>`;
-    graph.onclick = (e) => {
-      const r = graph.getBoundingClientRect();
-      show(Math.round(((e.clientX - r.left) / r.width) * W));
+    const sumCoach = new Coach(board);
+    const acc = R.accuracy ?? { white: 0, black: 0 };
+    const meSide: Side | 'both' = R.userColor;
+    const counts = { white: classCounts(a, 'white', whiteFirst), black: classCounts(a, 'black', whiteFirst) };
+    const myAcc = meSide === 'both' ? (acc.white + acc.black) / 2 : acc[meSide];
+    const myCounts = meSide === 'both' ? sumCounts(counts.white, counts.black) : counts[meSide];
+    sumCoach.say(summaryLine({ result: R.result, you: meSide, accuracy: myAcc, counts: myCounts }), myAcc >= 80 ? 'excited' : myAcc >= 60 ? 'happy' : 'thinking');
+
+    const graph = new EvalGraph(a, 20, (p) => show(p), (i) => isHighlight(i) || a[i].cls === 'brilliant' || a[i].cls === 'great');
+    graphs.length = 0;
+    graphs.push(graph);
+    const phases = phasesOf(fens, a.length);
+    const grades = { white: phaseGrades(a, phases, 'white', whiteFirst), black: phaseGrades(a, phases, 'black', whiteFirst) };
+    const perf = (side: Side) => performance(a, side, whiteFirst).rating;
+
+    const player = (side: Side) => {
+      const rated = ratingInName(side === 'white' ? R.white : R.black);
+      const est = perf(side);
+      const diff = est !== null && rated !== null ? est - rated : null;
+      return h(
+        `div.rv-player.${side}`,
+        h('div.rv-pname', nameOf(side)),
+        h(`div.rv-acc.${side}`, `${(acc[side] ?? 0).toFixed(1)}`),
+        h('div.rv-rating', est !== null ? [h('span.muted', 'Game rating '), h('strong', `~${est}`)] : h('span.muted', 'Too short to rate')),
+        diff !== null && Math.abs(diff) >= 50 ? h(`div.rv-diff.${diff > 0 ? 'up' : 'down'}`, `${diff > 0 ? '+' : ''}${diff} vs rating ${rated}`) : null,
+      );
     };
+    const row = (c: MoveClass) =>
+      h(
+        `div.rv-crow${counts.white[c] + counts.black[c] === 0 ? '.zero' : ''}`,
+        h('span.rv-n', { style: `color:${CLASS_STYLE[c].color}` }, String(counts.white[c])),
+        h('span.rv-clabel', classBadge(c), CLASS_STYLE[c].label),
+        h('span.rv-n', { style: `color:${CLASS_STYLE[c].color}` }, String(counts.black[c])),
+      );
+    const phaseCell = (g: (typeof grades)['white'][number]) =>
+      g.cls ? h('span.rv-phase-cell', { title: `${g.accuracy}% accuracy` }, classBadge(g.cls), h('small', `${g.accuracy}%`)) : h('span.rv-phase-cell.muted', '–');
+    const phaseRow = (k: number, label: string) => h('div.rv-crow.phase', phaseCell(grades.white[k]), h('span.rv-clabel', label), phaseCell(grades.black[k]));
+
+    const myErrs = a.filter((m, i) => isMine(i) && (m.cls === 'mistake' || m.cls === 'blunder' || m.cls === 'miss')).length;
+    summaryPanel.replaceChildren(
+      sumCoach.el,
+      h('div.rv-card', graph.el),
+      h('div.rv-card.rv-players', h('div.rv-col-h', h('span'), h('span.muted', 'Accuracy'), h('span')), h('div.rv-pl-row', player('white'), player('black'))),
+      h('div.rv-card', ...CLASS_ORDER.map(row)),
+      h('div.rv-card', h('div.rv-card-t', 'Phases'), phaseRow(0, 'Opening'), phaseRow(1, 'Middlegame'), phaseRow(2, 'Endgame')),
+      h('p.rv-note', 'Game rating is a rough estimate from accuracy in this one game (book moves skipped). It is not an official rating.'),
+      h('div.rv-start', h('button.btn.primary.big', { type: 'button', onclick: () => startReview() }, 'Start Review'),
+        myErrs ? h('a.btn.rv-learn', { href: '#/mistakes' }, icon('target'), 'Learn from mistakes') : null),
+    );
+  }
+
+  function sumCounts(x: Record<MoveClass, number>, y: Record<MoveClass, number>) {
+    return Object.fromEntries(CLASS_ORDER.map((c) => [c, x[c] + y[c]])) as Record<MoveClass, number>;
+  }
+
+  function startReview() {
+    setMode('review');
+    show(0);
+    startAuto();
+  }
+
+  // ---------------------------------------------------------------- analysis
+  async function saveMistakes() {
+    const a = R.analysis;
+    if (!a || R.id === undefined) return;
+    const found = a.flatMap((m, i) => {
+      if (!isMine(i) || !(m.cls === 'mistake' || m.cls === 'blunder' || m.cls === 'miss') || !m.best) return [];
+      const answers = [m.best];
+      if (m.second && m.secondLoss !== undefined && m.secondLoss <= 4) answers.push(m.second);
+      return [
+        {
+          id: `${R.id}:${i}`,
+          gameId: R.id!,
+          ply: i,
+          fen: fens[i],
+          played: R.sans[i],
+          cls: m.cls,
+          answers,
+          line: m.bestPv.slice(0, 6),
+          lastMove: lastMoves[i],
+          label: `vs ${oppName(i)} · move ${Math.floor(i / 2) + 1}`,
+        },
+      ];
+    });
+    if (found.length) await addMistakes(found);
   }
 
   async function runAnalysis() {
-    progress.replaceChildren(h('div.bar', h('span', { style: 'width:0%' })), h('span.small', 'Analysing with Stockfish…'));
+    const bar = h('span', { style: 'width:0%' });
+    const label = h('span.small', '');
+    const anCoach = new Coach(board);
+    anCoach.say(`Give me a moment. I'm checking every move of this game.`, 'thinking');
+    summaryPanel.replaceChildren(anCoach.el, h('div.rv-progress', h('div.bar', bar), label));
     try {
-      await analyseGame(rec!, (d, t) => {
-        (progress.querySelector('.bar span') as HTMLElement).style.width = `${(100 * d) / t}%`;
-        (progress.lastChild as HTMLElement).textContent = `Analysing with Stockfish… ${d}/${t}`;
+      await analyseGame(R, (d, t) => {
+        bar.style.width = `${(100 * d) / t}%`;
+        label.textContent = `Analysing on this device… ${d}/${t}`;
       });
-      progress.replaceChildren();
-      renderAll();
-      show(0);
-      toast('Analysis complete — starting guided review', 'good');
-      startAuto();
+      moments.clear();
+      renderMoves();
+      await saveMistakes();
+      renderSummary();
+      toast('Review ready', 'good');
     } catch {
       /* cancelled by navigation */
     }
   }
 
+  function renderMoves() {
+    moveList.render(R.sans.map((san, i) => ({ san, cls: R.analysis?.[i]?.cls })), ply - 1);
+  }
+
   const keyHandler = (e: KeyboardEvent) => {
+    if ((e.target as HTMLElement)?.closest?.('input,textarea')) return;
     if (e.key === 'ArrowLeft') show(ply - 1);
     if (e.key === 'ArrowRight') show(ply + 1);
     if (e.key === ' ') (e.preventDefault(), auto ? stopAuto() : startAuto());
   };
   addEventListener('keydown', keyHandler);
 
-  const resultText = `${rec.result} · ${rec.termination} · ${new Date(rec.date).toLocaleDateString()}`;
-  const el = h(
-    'div.page.review',
-    h('header.lesson-head', h('a.icon-btn', { href: '#/games', 'aria-label': 'Back' }, '‹'), h('div.grow', h('div.eyebrow', resultText), h('h2', `${rec.white} vs ${rec.black}`))),
-    h(
-      'div.play-layout',
-      h('div.board-col', wdlBar, h('div.board-with-bar', evalBar, board.el), graph, h('div.demo-ctrl', h('button.btn', { 'aria-label': 'Start', onclick: () => show(0) }, '⏮'), h('button.btn', { 'aria-label': 'Previous move', onclick: () => show(ply - 1) }, '◀'), autoBtn, h('button.btn', { 'aria-label': 'Next move', onclick: () => show(ply + 1) }, '▶'), h('button.btn', { 'aria-label': 'End', onclick: () => show(fens.length - 1) }, '⏭'), h('button.btn.ghost', { 'aria-label': 'Flip board', onclick: () => (board.flip(), renderEvalBar()) }, '⇅')),
-        coachSlot,
-        h('label.toggle.small-toggle', h('input', { type: 'checkbox', onchange: (e: Event) => (onlyMine = (e.target as HTMLInputElement).checked) }), h('span', h('strong', 'Pause only at my moves'), h('small', 'Otherwise it also stops at the opponent’s big moments.')))),
-      h('div.side-col', progress, detail, moments, summary, moveList),
-    ),
-  );
-  renderAll();
-  const fresh = !rec.analysis || (rec.analysisVersion ?? 1) < ANALYSIS_VERSION;
-  show(fresh ? ply : 0);
+  placeCards();
+  renderMoves();
+  setMode('summary');
+  const fresh = !R.analysis || (R.analysisVersion ?? 1) < ANALYSIS_VERSION;
   if (fresh) void runAnalysis();
-  else startAuto();
+  else void saveMistakes();
   return {
-    el,
+    el: page,
+    title: 'Game Review',
     destroy: () => {
       removeEventListener('keydown', keyHandler);
+      wide?.removeEventListener('change', applyWide);
       stopAuto();
+      abortAnim();
       engine.cancelAll();
       board.destroy();
     },
   };
-}
-
-function sanLineToUci(fen: string, sans: string[]): string[] {
-  const g = new Chess(fen);
-  const out: string[] = [];
-  for (const s of sans) {
-    try {
-      const m = g.move(s);
-      out.push(m.from + m.to + (m.promotion ?? ''));
-    } catch {
-      break;
-    }
-  }
-  return out;
 }
 
 function safeMove(fen: string, san: string) {
@@ -580,10 +904,4 @@ function safeMove(fen: string, san: string) {
   } catch {
     return null;
   }
-}
-
-function playedFen(fen: string, sans: string[]): string {
-  const g = new Chess(fen);
-  for (const x of sans) g.move(x);
-  return g.fen();
 }
