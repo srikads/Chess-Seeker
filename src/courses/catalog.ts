@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { jobavaChapters } from './content/jobava';
 import { englishChapters } from './content/english';
 import { scotchChapters } from './content/scotch';
 import { ruyLopezChapters } from './content/ruy-lopez';
@@ -108,8 +109,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#a0312e', fg: '#ffe9e0', label: '1.d4', sub: 'Jobava', piece: 'knight', pieceColor: 'white' },
     description: 'd4, Nc3 and Bf4: the aggressive cousin of the London. Quick development and early threats.',
-    chapters: outline(['Setup and ideas', 'The Nb5 jump', 'vs ...g6 setups', 'Kingside attack']),
-    status: 'draft',
+    chapters: jobavaChapters,
+    status: 'ready',
   },
   // ------------------------------------------------------------------ Black openings & defenses
   {
