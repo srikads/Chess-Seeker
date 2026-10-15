@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { pawnStructuresChapters } from './content/pawn-structures';
 import { endgamesChapters } from './content/endgames';
 import { middlegameChapters } from './content/middlegame';
 import { tacticsChapters } from './content/tactics';
@@ -377,8 +378,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#355e3b', fg: '#f1ffe8', label: 'Pawns', sub: 'Structures', piece: 'pawn', pieceColor: 'white' },
     description: 'Isolated, doubled and passed pawns, pawn chains and majorities. Learn which plan each structure asks for.',
-    chapters: outline(['Isolated pawns', 'Pawn chains', 'Passed pawns', 'Majorities and minority attack']),
-    status: 'draft',
+    chapters: pawnStructuresChapters,
+    status: 'ready',
   },
   // ------------------------------------------------------------------ Coming soon
   soon('najdorf', 'Sicilian Najdorf Ideas', 'For players ready for sharp play', 'black', ['black', 'defense'], { bg: '#3b3b58', fg: '#c8c8ff', label: '...a6', sub: 'Najdorf' }),
