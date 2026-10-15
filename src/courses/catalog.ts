@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { fundamentalsChapters } from './content/fundamentals';
 import { albinEnglundChapters } from './content/albin-englund';
 import { staffordChapters } from './content/stafford';
 import { friedLiverChapters } from './content/fried-liver';
@@ -313,8 +314,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#5a8f29', fg: '#ffffff', label: 'ABC', sub: 'Fundamentals', piece: 'pawn', pieceColor: 'white' },
     description: 'Center, development, king safety and not hanging pieces. The four rules that win most beginner games.',
-    chapters: outline(['Control the center', 'Develop your pieces', 'Castle early', 'Don\'t hang pieces', 'Check, capture, threat']),
-    status: 'draft',
+    chapters: fundamentalsChapters,
+    status: 'ready',
   },
   {
     id: 'checkmates',
