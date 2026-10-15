@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { qgdChapters } from './content/qgd';
 import { blackE5Chapters } from './content/black-e5';
 import { acceleratedDragonChapters } from './content/accelerated-dragon';
 import { frenchChapters } from './content/french';
@@ -179,8 +180,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#4a4e69', fg: '#f2e9e4', label: 'd5 e6', sub: 'QGD', piece: 'king', pieceColor: 'black' },
     description: 'Hold the center with ...d5 and ...e6, develop and castle. A solid setup trusted by world champions.',
-    chapters: outline(['Main setup', 'Exchange Variation', 'vs the London', 'Freeing moves ...c5 and ...e5']),
-    status: 'draft',
+    chapters: qgdChapters,
+    status: 'ready',
   },
   {
     id: 'slav',
