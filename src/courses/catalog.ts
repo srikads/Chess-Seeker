@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { kingsIndianChapters } from './content/kings-indian';
 import { slavChapters } from './content/slav';
 import { qgdChapters } from './content/qgd';
 import { blackE5Chapters } from './content/black-e5';
@@ -205,8 +206,8 @@ export const COURSES: Course[] = [
     level: 'advanced',
     cover: { bg: '#7a2e5c', fg: '#ffe3f1', label: 'g6 Bg7', sub: 'King\'s Indian', piece: 'king', pieceColor: 'black' },
     description: 'Fianchetto, castle, then hit back with ...e5 or ...c5. Rich attacking chances for Black.',
-    chapters: outline(['Setup and ideas', 'Classical main line', 'Sämisch f3', 'Kingside pawn storm']),
-    status: 'draft',
+    chapters: kingsIndianChapters,
+    status: 'ready',
   },
   {
     id: 'dutch',
