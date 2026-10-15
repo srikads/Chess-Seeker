@@ -6,6 +6,8 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { frenchChapters } from './content/french';
+import { scandinavianChapters } from './content/scandinavian';
 
 export const COURSES: Course[] = [
   // ------------------------------------------------------------------ White openings
@@ -127,8 +129,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#2b4c8c', fg: '#ffffff', label: '...d5', sub: 'Scandinavian', piece: 'queen', pieceColor: 'black' },
     description: 'Answer 1.e4 with 1...d5 and choose your positions from move one. Few lines, clear plans.',
-    chapters: outline(['2...Qxd5 main lines', '3...Qa5 setup', '2...Nf6 gambit ideas', 'Traps for White']),
-    status: 'draft',
+    chapters: scandinavianChapters,
+    status: 'ready',
   },
   {
     id: 'french',
@@ -139,8 +141,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#2c5d8f', fg: '#fef6e4', label: '...e6', sub: 'French', piece: 'pawn', pieceColor: 'black' },
     description: 'Build a strong pawn chain and attack White\'s center with ...c5 and ...f6.',
-    chapters: outline(['Advance 3.e5', 'Exchange 3.exd5', 'Tarrasch 3.Nd2', 'Winawer ideas 3.Nc3']),
-    status: 'draft',
+    chapters: frenchChapters,
+    status: 'ready',
   },
   {
     id: 'accelerated-dragon',
