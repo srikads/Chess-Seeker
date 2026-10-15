@@ -2,7 +2,6 @@
 // To author a course: write src/courses/content/<id>.ts (see AUTHORING.md), import its chapters here,
 // replace `outline([...])` with them and set status: 'ready'.
 import type { Course, CourseCategory } from './types';
-import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
@@ -24,6 +23,15 @@ import { blackE5Chapters } from './content/black-e5';
 import { acceleratedDragonChapters } from './content/accelerated-dragon';
 import { frenchChapters } from './content/french';
 import { scandinavianChapters } from './content/scandinavian';
+import { pawnStructuresChapters } from './content/pawn-structures';
+import { endgamesChapters } from './content/endgames';
+import { middlegameChapters } from './content/middlegame';
+import { tacticsChapters } from './content/tactics';
+import { fundamentalsChapters } from './content/fundamentals';
+import { albinEnglundChapters } from './content/albin-englund';
+import { staffordChapters } from './content/stafford';
+import { friedLiverChapters } from './content/fried-liver';
+import { kingsGambitChapters } from './content/kings-gambit';
 
 export const COURSES: Course[] = [
   // ------------------------------------------------------------------ White openings
@@ -278,8 +286,8 @@ export const COURSES: Course[] = [
     level: 'advanced',
     cover: { bg: '#9b1d20', fg: '#ffd8a8', label: '2.f4', sub: 'King\'s Gambit', piece: 'king', pieceColor: 'white' },
     description: 'Open the f-file and go for the king. Sharp, fun and full of traps on both sides.',
-    chapters: outline(['Accepted: 2...exf4', 'Declined: 2...Bc5', 'Falkbeer 2...d5', 'Attacking f7']),
-    status: 'draft',
+    chapters: kingsGambitChapters,
+    status: 'ready',
   },
   {
     id: 'fried-liver',
@@ -290,8 +298,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#b23a48', fg: '#fff0f3', label: 'Ng5', sub: 'Fried Liver', piece: 'knight', pieceColor: 'white' },
     description: 'Jump 4.Ng5 at f7 and punish natural mistakes. Learn the main defenses too.',
-    chapters: outline(['4.Ng5 d5 5.exd5', 'The Fried Liver sacrifice', 'Traxler counterattack', 'Polerio 5...Na5']),
-    status: 'draft',
+    chapters: friedLiverChapters,
+    status: 'ready',
   },
   {
     id: 'stafford',
@@ -302,8 +310,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#38304f', fg: '#ffcf56', label: '...Nc6?!', sub: 'Stafford', piece: 'queen', pieceColor: 'black' },
     description: 'The Stafford Gambit is full of tricks. See every trap, then learn the calm moves that refute it.',
-    chapters: outline(['The traps', 'Safe refutation', 'Converting the extra piece']),
-    status: 'draft',
+    chapters: staffordChapters,
+    status: 'ready',
   },
   {
     id: 'albin-englund',
@@ -314,8 +322,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#4b2a6b', fg: '#ffd6f5', label: '...e5!?', sub: 'Albin & Englund', piece: 'pawn', pieceColor: 'black' },
     description: 'Surprise 1.d4 players with ...e5 gambits and their traps. We also show the refutations, so you know the risks.',
-    chapters: outline(['Albin Countergambit', 'The Lasker Trap', 'Englund Gambit traps', 'How White refutes them']),
-    status: 'draft',
+    chapters: albinEnglundChapters,
+    status: 'ready',
   },
   // ------------------------------------------------------------------ Skill courses
   {
@@ -327,8 +335,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#5a8f29', fg: '#ffffff', label: 'ABC', sub: 'Fundamentals', piece: 'pawn', pieceColor: 'white' },
     description: 'Center, development, king safety and not hanging pieces. The four rules that win most beginner games.',
-    chapters: outline(['Control the center', 'Develop your pieces', 'Castle early', 'Don\'t hang pieces', 'Check, capture, threat']),
-    status: 'draft',
+    chapters: fundamentalsChapters,
+    status: 'ready',
   },
   {
     id: 'checkmates',
@@ -351,8 +359,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#e8a33d', fg: '#2d1a00', label: 'Fork!', sub: 'Tactics', piece: 'knight', pieceColor: 'black' },
     description: 'The tricks that win material: forks, pins, skewers, discovered attacks and removing the defender.',
-    chapters: outline(['Forks', 'Pins', 'Skewers', 'Discovered attacks', 'Removing the defender']),
-    status: 'draft',
+    chapters: tacticsChapters,
+    status: 'ready',
   },
   {
     id: 'middlegame',
@@ -363,8 +371,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#2d6a8e', fg: '#e6f4ff', label: 'Plan', sub: 'Middlegame', piece: 'rook', pieceColor: 'white' },
     description: 'Find a plan: improve your worst piece, open files for rooks and attack where you are stronger.',
-    chapters: outline(['Improve your worst piece', 'Open files and outposts', 'Attacking the castled king', 'Trading pieces']),
-    status: 'draft',
+    chapters: middlegameChapters,
+    status: 'ready',
   },
   {
     id: 'endgames',
@@ -375,8 +383,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#6d597a', fg: '#fdf0ff', label: 'K+P', sub: 'Endgames', piece: 'king', pieceColor: 'white' },
     description: 'King and pawn endings, the opposition, basic rook endings and how to mate with a queen or rook.',
-    chapters: outline(['Queen and rook mates', 'King and pawn: the opposition', 'The square rule', 'Rook endings basics']),
-    status: 'draft',
+    chapters: endgamesChapters,
+    status: 'ready',
   },
   {
     id: 'pawn-structures',
@@ -387,8 +395,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#355e3b', fg: '#f1ffe8', label: 'Pawns', sub: 'Structures', piece: 'pawn', pieceColor: 'white' },
     description: 'Isolated, doubled and passed pawns, pawn chains and majorities. Learn which plan each structure asks for.',
-    chapters: outline(['Isolated pawns', 'Pawn chains', 'Passed pawns', 'Majorities and minority attack']),
-    status: 'draft',
+    chapters: pawnStructuresChapters,
+    status: 'ready',
   },
   // ------------------------------------------------------------------ Coming soon
   soon('najdorf', 'Sicilian Najdorf Ideas', 'For players ready for sharp play', 'black', ['black', 'defense'], { bg: '#3b3b58', fg: '#c8c8ff', label: '...a6', sub: 'Najdorf' }),
