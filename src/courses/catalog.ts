@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { englishChapters } from './content/english';
 import { scotchChapters } from './content/scotch';
 import { ruyLopezChapters } from './content/ruy-lopez';
 import { queensGambitChapters } from './content/queens-gambit';
@@ -95,8 +96,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#3d5a2a', fg: '#f3ffe6', label: '1.c4', sub: 'English', piece: 'rook', pieceColor: 'white' },
     description: 'Start with 1.c4 and a fianchetto bishop. A flexible setup with simple plans.',
-    chapters: outline(['The c4 + g3 setup', 'vs 1...e5', 'vs 1...c5', 'vs 1...Nf6']),
-    status: 'draft',
+    chapters: englishChapters,
+    status: 'ready',
   },
   {
     id: 'jobava',
