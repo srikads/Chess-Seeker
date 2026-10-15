@@ -416,9 +416,11 @@ cg-board square.hl-yellow { background-color: rgb(245 205 60 / 0.6); }
 .fx-layer .draw polygon { opacity: 0; transform-box: fill-box; transform-origin: center; animation: fx-head 0.18s 0.3s ease-out forwards; }
 @keyframes fx-draw { to { stroke-dashoffset: 0; } }
 @keyframes fx-head { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
-.sq-badge { position: absolute; width: 12.5%; aspect-ratio: 1; transform: translate(-58%, -42%) scale(0.5); transform-origin: center; z-index: 4; pointer-events: none; animation: badge-pop 0.32s cubic-bezier(.3,1.6,.5,1) forwards; }
+.sq-badge { --tx: -58%; --ty: -42%; position: absolute; width: 12.5%; aspect-ratio: 1; transform: translate(var(--tx), var(--ty)) scale(0.5); transform-origin: center; z-index: 4; pointer-events: none; animation: badge-pop 0.32s cubic-bezier(.3,1.6,.5,1) forwards; }
+.sq-badge.edge-top { --ty: -22%; }
+.sq-badge.edge-right { --tx: -78%; }
 .sq-badge .cls-badge { width: 100%; height: 100%; filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.35)); }
-@keyframes badge-pop { from { transform: translate(-58%, -42%) scale(0); } to { transform: translate(-58%, -42%) scale(0.5); } }
+@keyframes badge-pop { from { transform: translate(var(--tx), var(--ty)) scale(0); } to { transform: translate(var(--tx), var(--ty)) scale(0.5); } }
 .sq-flash { position: absolute; width: 12.5%; aspect-ratio: 1; z-index: 2; pointer-events: none; animation: sq-flash 1.6s ease-in-out forwards; }
 .sq-flash.red { background: rgb(235 80 60 / 0.7); }
 .sq-flash.green { background: rgb(130 190 70 / 0.7); }

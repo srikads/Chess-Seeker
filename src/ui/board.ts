@@ -194,7 +194,9 @@ export class BoardView {
     this.badgeAt = sq && cls ? { sq, cls } : null;
     if (!this.badgeAt) return;
     const { x, y } = this.xy(this.badgeAt.sq);
-    this.badgeEl = h('div.sq-badge', { style: `left:${((x + 1) / 8) * 100}%;top:${(y / 8) * 100}%` }, classBadge(this.badgeAt.cls));
+    // keep the badge inside the board on the top rank / right file (the wrap clips overflow)
+    const edge = `${y === 0 ? '.edge-top' : ''}${x === 7 ? '.edge-right' : ''}`;
+    this.badgeEl = h(`div.sq-badge${edge}`, { style: `left:${((x + 1) / 8) * 100}%;top:${(y / 8) * 100}%` }, classBadge(this.badgeAt.cls));
     this.el.append(this.badgeEl);
   }
 

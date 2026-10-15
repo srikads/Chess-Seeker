@@ -7,6 +7,7 @@ export function moreView(): View {
   const el = h(
     'div.more',
     pageHeader('More'),
+    h('div.tiles', tile({ href: '/courses', icon: 'book', title: 'Courses', sub: '30 opening & skill courses: learn, then practice from memory', color: '#81b64c' })),
     h('h3', 'Your games'),
     h(
       'div.tiles',

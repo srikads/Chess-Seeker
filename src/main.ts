@@ -24,6 +24,8 @@ import { rushView } from './views/rush';
 import { visionView } from './views/vision';
 import { insightsView } from './views/insights';
 import { mistakesView } from './views/mistakes';
+import { coursesView } from './views/courses';
+import { courseView, courseLearnView, coursePracticeView } from './views/course';
 
 applyTheme();
 
@@ -31,7 +33,7 @@ const tabs: { path: string; icon: IconName; label: string; match: RegExp }[] = [
   { path: '/', icon: 'home', label: 'Home', match: /^\/$/ },
   { path: '/play', icon: 'play', label: 'Play', match: /^\/play/ },
   { path: '/puzzles', icon: 'puzzle', label: 'Puzzles', match: /^\/(puzzles|rush|mistakes)/ },
-  { path: '/learn', icon: 'learn', label: 'Learn', match: /^\/(learn|lesson|openings|drills|vision)/ },
+  { path: '/learn', icon: 'learn', label: 'Learn', match: /^\/(learn|lesson|openings|drills|vision|courses|course)/ },
   { path: '/more', icon: 'more', label: 'More', match: /^\/(more|games|review|import|analysis|insights|settings)/ },
 ];
 
@@ -82,6 +84,11 @@ route('/rush', rushView);
 route('/vision', visionView);
 route('/insights', insightsView);
 route('/mistakes', mistakesView);
+route('/courses', coursesView);
+route('/course/:id', courseView);
+route('/course/:id/learn/:chapter/:line', courseLearnView);
+route('/course/:id/practice', coursePracticeView);
+route('/course/:id/practice/:chapter/:line', coursePracticeView);
 
 initTracker();
 startRouter();

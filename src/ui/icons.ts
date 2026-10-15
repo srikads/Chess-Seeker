@@ -52,6 +52,7 @@ const PATHS = {
   upload: '<path d="M11 16V7.8L7.4 11.4 6 10l6-6 6 6-1.4 1.4L13 7.8V16zm-6 2h14v2H5z" fill="currentColor"/>',
   bot: '<path d="M11 2h2v2.1A7 7 0 0 1 19 11v6a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-6a7 7 0 0 1 6-6.9zm-2 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M2 12h2v4H2zm18 0h2v4h-2z" fill="currentColor"/>',
   chat: '<path d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2" fill="currentColor"/>',
+  search: '<path d="M10.5 3a7.5 7.5 0 0 1 6 12l4.8 4.8-1.6 1.6-4.8-4.8A7.5 7.5 0 1 1 10.5 3m0 2.2a5.3 5.3 0 1 0 0 10.6 5.3 5.3 0 0 0 0-10.6" fill="currentColor"/>',
   volume: '<path d="M3 9h4l5-4.5v15L7 15H3zm12.5-1.6a6 6 0 0 1 0 9.2l-1.4-1.4a4 4 0 0 0 0-6.4z" fill="currentColor"/>',
   download: '<path d="M11 4h2v8.2l3.6-3.6L18 10l-6 6-6-6 1.4-1.4 3.6 3.6zm-6 14h14v2H5z" fill="currentColor"/>',
   trash: '<path d="M9 3h6l1 1.5h4V6.5H4V4.5h4zM5.5 8h13l-1 13h-11zm4 2.5v8h1.6v-8zm3.4 0v8h1.6v-8z" fill="currentColor"/>',

@@ -1,6 +1,6 @@
 import { h } from '../ui/dom';
 import { icon, type IconName } from '../ui/icons';
-import { pageHeader } from '../ui/widgets';
+import { pageHeader, tile } from '../ui/widgets';
 import { miniBoard } from '../ui/miniboard';
 import { ring } from '../ui/charts';
 import { TRACKS, lessonsForTrack, ALL_LESSONS } from '../lessons';
@@ -86,7 +86,8 @@ export async function learnView(): Promise<View> {
         );
       }),
     );
-  const sections: HTMLElement[] = [upNext, tracks];
+  const courses = h('section.learn-courses', tile({ href: '/courses', icon: 'book', title: 'Courses', sub: '30 opening & skill courses: learn, then practice from memory', color: '#81b64c' }));
+  const sections: HTMLElement[] = [courses, upNext, tracks];
   const el = h('div.page.learn2', header, sections);
   return { el, title: 'Lessons' };
 }
