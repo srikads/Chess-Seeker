@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "validate:lessons": "tsx scripts/validate-lessons.ts",
-    "build:puzzles": "node scripts/build-puzzles.mjs"
+    "validate:courses": "tsx scripts/validate-courses.ts",
+    "build:puzzles": "node scripts/build-puzzles.mjs",
+    "build:openings": "node scripts/build-openings.mjs"
   },
   "repository": {
     "type": "git",

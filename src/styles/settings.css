@@ -1,0 +1,53 @@
+/* Settings — grouped list rows. */
+.settings2 { max-width: 720px; margin: 0 auto; }
+.sgroup { margin: 0 0 18px; }
+.sgroup-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 4px 6px; font-weight: 800; }
+.sgroup-list { background: var(--surface); border-radius: var(--radius); overflow: hidden; }
+.sgroup-list > * + * { border-top: 1px solid var(--border); }
+.srow { display: flex; align-items: center; gap: 12px; padding: 10px 14px; min-height: 58px; width: 100%; color: var(--text); background: transparent; border: 0; font: inherit; text-align: left; }
+label.srow, .srow.action { cursor: pointer; transition: background 0.12s; }
+label.srow:hover, .srow.action:hover { background: color-mix(in srgb, var(--surface) 88%, white); }
+.srow.col { flex-direction: column; align-items: stretch; gap: 10px; }
+.srow.note { min-height: 0; padding: 8px 14px; }
+.srow-icon { width: 34px; height: 34px; flex: none; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--c); }
+.srow-icon .icon { width: 20px; height: 20px; }
+.srow-text { flex: 1; min-width: 0; }
+.srow-text strong { display: block; font-weight: 700; }
+.srow-text small { font-size: 0.8rem; }
+.srow.danger strong { color: var(--bad); }
+.split-total { color: var(--muted); }
+.split-total.bad { color: var(--bad); font-weight: 700; }
+.about p { margin: 0; }
+
+/* switch */
+.switch { appearance: none; width: 50px; height: 30px; flex: none; border-radius: 99px; background: var(--surface-3); position: relative; cursor: pointer; transition: background 0.2s; margin: 0; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.35); transition: transform 0.2s cubic-bezier(.3,.7,.4,1); }
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(20px); }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* stepper + percent */
+.stepper { display: flex; align-items: center; gap: 4px; flex: none; }
+.stp { width: 40px; height: 40px; border: 0; border-radius: 8px; background: var(--btn); color: var(--text); font: inherit; font-size: 1.3rem; font-weight: 800; cursor: pointer; box-shadow: 0 3px 0 var(--btn-shadow); }
+.stp:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--btn-shadow); }
+.stp-val { min-width: 64px; text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pct { display: flex; align-items: center; gap: 4px; flex: none; font-weight: 700; color: var(--muted); }
+.pct input { width: 70px; min-height: 40px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: inherit; font-weight: 700; text-align: right; }
+
+/* mini segmented */
+.mini-seg { display: flex; background: var(--bg-deep); border-radius: 8px; padding: 3px; gap: 3px; flex: none; }
+.mini-seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 700; font-size: 0.88rem; padding: 7px 12px; border-radius: 6px; cursor: pointer; min-height: 36px; }
+.mini-seg button.on { background: var(--surface-2); color: var(--text); }
+
+/* board picker */
+.board-picker { display: flex; gap: 14px; padding: 14px; align-items: center; }
+.bp-preview { width: 42%; max-width: 200px; flex: none; }
+.bp-swatches { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bp-swatch { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; padding: 4px; border-radius: 10px; }
+.bp-chip { width: 52px; height: 52px; border-radius: 10px; display: grid; place-items: center; color: #fff; box-shadow: 0 2px 0 rgb(0 0 0 / 0.25); transition: transform 0.15s, box-shadow 0.15s; }
+.bp-chip .icon { width: 26px; height: 26px; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.6)); }
+.bp-swatch.on .bp-chip { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--accent); transform: scale(1.04); }
+.bp-swatch.on { color: var(--text); }
+.bp-preview .mini-board .mb-sq { transition: background-color 0.3s; }
+.srow .chev2 { color: var(--muted); display: grid; }
+.srow .chev2 .icon { width: 20px; height: 20px; }
