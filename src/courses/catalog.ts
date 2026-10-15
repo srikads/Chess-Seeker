@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { ruyLopezChapters } from './content/ruy-lopez';
 import { queensGambitChapters } from './content/queens-gambit';
 import { londonChapters } from './content/london';
 import { viennaChapters } from './content/vienna';
@@ -69,8 +70,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#b5542a', fg: '#fff4e0', label: 'Bb5', sub: 'Ruy Lopez', piece: 'bishop', pieceColor: 'white' },
     description: 'Pressure the knight that guards e5. Learn the main ideas without drowning in theory.',
-    chapters: outline(['3.Bb5: the idea', 'Morphy Defense 3...a6', 'Berlin 3...Nf6', 'Exchange Variation']),
-    status: 'draft',
+    chapters: ruyLopezChapters,
+    status: 'ready',
   },
   {
     id: 'scotch',
