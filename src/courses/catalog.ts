@@ -6,6 +6,15 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { smithMorraChapters } from './content/smith-morra';
+import { danishChapters } from './content/danish';
+import { jobavaChapters } from './content/jobava';
+import { englishChapters } from './content/english';
+import { scotchChapters } from './content/scotch';
+import { ruyLopezChapters } from './content/ruy-lopez';
+import { queensGambitChapters } from './content/queens-gambit';
+import { londonChapters } from './content/london';
+import { viennaChapters } from './content/vienna';
 
 export const COURSES: Course[] = [
   // ------------------------------------------------------------------ White openings
@@ -30,8 +39,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#6b3fa0', fg: '#fff3d6', label: 'Nc3', sub: 'Vienna', piece: 'knight', pieceColor: 'white' },
     description: 'Play 2.Nc3 and keep the option of a sharp f4 push. Flexible, tricky and easy to learn.',
-    chapters: outline(['Vienna setup', '2...Nf6: the f4 push', '2...Nc6 and ...Bc5', 'Traps and tricks']),
-    status: 'draft',
+    chapters: viennaChapters,
+    status: 'ready',
   },
   {
     id: 'london',
@@ -42,8 +51,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#1f4e79', fg: '#f2f2f2', label: 'Bf4', sub: 'London', piece: 'bishop', pieceColor: 'white' },
     description: 'd4, Bf4, e3, Nf3, c3: the same solid setup almost every game. Perfect when you want fewer lines to memorise.',
-    chapters: outline(['The London setup', 'vs the King\'s Indian setup', 'vs ...c5 and ...Qb6', 'Kingside attack plans']),
-    status: 'draft',
+    chapters: londonChapters,
+    status: 'ready',
   },
   {
     id: 'queens-gambit',
@@ -54,8 +63,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#8a2c3b', fg: '#ffe8c2', label: '2.c4', sub: 'Queen\'s Gambit', piece: 'queen', pieceColor: 'white' },
     description: 'Offer a pawn to win the center. Learn the Accepted, Declined and Slav setups from White\'s side.',
-    chapters: outline(['Queen\'s Gambit Accepted', 'Queen\'s Gambit Declined', 'Slav lines', 'Typical plans']),
-    status: 'draft',
+    chapters: queensGambitChapters,
+    status: 'ready',
   },
   {
     id: 'ruy-lopez',
@@ -66,8 +75,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#b5542a', fg: '#fff4e0', label: 'Bb5', sub: 'Ruy Lopez', piece: 'bishop', pieceColor: 'white' },
     description: 'Pressure the knight that guards e5. Learn the main ideas without drowning in theory.',
-    chapters: outline(['3.Bb5: the idea', 'Morphy Defense 3...a6', 'Berlin 3...Nf6', 'Exchange Variation']),
-    status: 'draft',
+    chapters: ruyLopezChapters,
+    status: 'ready',
   },
   {
     id: 'scotch',
@@ -78,8 +87,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#1d6f73', fg: '#eafcff', label: '3.d4', sub: 'Scotch', piece: 'pawn', pieceColor: 'white' },
     description: 'Strike with 3.d4 and get open lines for your pieces. Clear plans and fewer quiet positions.',
-    chapters: outline(['3.d4 exd4 4.Nxd4', 'Classical 4...Bc5', 'Schmidt 4...Nf6', 'Scotch Gambit ideas']),
-    status: 'draft',
+    chapters: scotchChapters,
+    status: 'ready',
   },
   {
     id: 'english',
@@ -90,8 +99,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#3d5a2a', fg: '#f3ffe6', label: '1.c4', sub: 'English', piece: 'rook', pieceColor: 'white' },
     description: 'Start with 1.c4 and a fianchetto bishop. A flexible setup with simple plans.',
-    chapters: outline(['The c4 + g3 setup', 'vs 1...e5', 'vs 1...c5', 'vs 1...Nf6']),
-    status: 'draft',
+    chapters: englishChapters,
+    status: 'ready',
   },
   {
     id: 'jobava',
@@ -102,8 +111,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#a0312e', fg: '#ffe9e0', label: '1.d4', sub: 'Jobava', piece: 'knight', pieceColor: 'white' },
     description: 'd4, Nc3 and Bf4: the aggressive cousin of the London. Quick development and early threats.',
-    chapters: outline(['Setup and ideas', 'The Nb5 jump', 'vs ...g6 setups', 'Kingside attack']),
-    status: 'draft',
+    chapters: jobavaChapters,
+    status: 'ready',
   },
   // ------------------------------------------------------------------ Black openings & defenses
   {
@@ -236,8 +245,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#c0392b', fg: '#ffffff', label: '3.c3!', sub: 'Danish', piece: 'bishop', pieceColor: 'white' },
     description: 'Sacrifice pawns for fast development and two raking bishops. Beginners on Black often collapse.',
-    chapters: outline(['Accepted: the full gambit', 'Declined with ...d5', 'Traps and mates']),
-    status: 'draft',
+    chapters: danishChapters,
+    status: 'ready',
   },
   {
     id: 'smith-morra',
@@ -248,8 +257,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#e07a1f', fg: '#2a1300', label: 'd4 c3', sub: 'Smith-Morra', piece: 'knight', pieceColor: 'white' },
     description: 'Give a pawn against 1...c5 for open lines and quick development. A great anti-Sicilian weapon.',
-    chapters: outline(['Accepted main line', 'Declined lines', 'Traps on the c-file', 'Attacking plans']),
-    status: 'draft',
+    chapters: smithMorraChapters,
+    status: 'ready',
   },
   {
     id: 'kings-gambit',
