@@ -6,6 +6,8 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { londonChapters } from './content/london';
+import { viennaChapters } from './content/vienna';
 
 export const COURSES: Course[] = [
   // ------------------------------------------------------------------ White openings
@@ -30,8 +32,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#6b3fa0', fg: '#fff3d6', label: 'Nc3', sub: 'Vienna', piece: 'knight', pieceColor: 'white' },
     description: 'Play 2.Nc3 and keep the option of a sharp f4 push. Flexible, tricky and easy to learn.',
-    chapters: outline(['Vienna setup', '2...Nf6: the f4 push', '2...Nc6 and ...Bc5', 'Traps and tricks']),
-    status: 'draft',
+    chapters: viennaChapters,
+    status: 'ready',
   },
   {
     id: 'london',
@@ -42,8 +44,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#1f4e79', fg: '#f2f2f2', label: 'Bf4', sub: 'London', piece: 'bishop', pieceColor: 'white' },
     description: 'd4, Bf4, e3, Nf3, c3: the same solid setup almost every game. Perfect when you want fewer lines to memorise.',
-    chapters: outline(['The London setup', 'vs the King\'s Indian setup', 'vs ...c5 and ...Qb6', 'Kingside attack plans']),
-    status: 'draft',
+    chapters: londonChapters,
+    status: 'ready',
   },
   {
     id: 'queens-gambit',
