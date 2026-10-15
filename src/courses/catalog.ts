@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { acceleratedDragonChapters } from './content/accelerated-dragon';
 import { frenchChapters } from './content/french';
 import { scandinavianChapters } from './content/scandinavian';
 
@@ -153,8 +154,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#15634a', fg: '#e6ffef', label: '...g6', sub: 'Dragon', piece: 'bishop', pieceColor: 'black' },
     description: 'Fianchetto your bishop on the long diagonal and fight for d5. Active Sicilian play made simple.',
-    chapters: outline(['Main line with ...g6', 'Maroczy Bind', 'Alapin 2.c3', 'Tactics on the long diagonal']),
-    status: 'draft',
+    chapters: acceleratedDragonChapters,
+    status: 'ready',
   },
   {
     id: 'black-e5',
