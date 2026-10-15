@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { albinEnglundChapters } from './content/albin-englund';
 import { staffordChapters } from './content/stafford';
 import { friedLiverChapters } from './content/fried-liver';
 import { kingsGambitChapters } from './content/kings-gambit';
@@ -299,8 +300,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#4b2a6b', fg: '#ffd6f5', label: '...e5!?', sub: 'Albin & Englund', piece: 'pawn', pieceColor: 'black' },
     description: 'Surprise 1.d4 players with ...e5 gambits and their traps. We also show the refutations, so you know the risks.',
-    chapters: outline(['Albin Countergambit', 'The Lasker Trap', 'Englund Gambit traps', 'How White refutes them']),
-    status: 'draft',
+    chapters: albinEnglundChapters,
+    status: 'ready',
   },
   // ------------------------------------------------------------------ Skill courses
   {
