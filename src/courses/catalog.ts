@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { pircModernChapters } from './content/pirc-modern';
 import { dutchChapters } from './content/dutch';
 import { kingsIndianChapters } from './content/kings-indian';
 import { slavChapters } from './content/slav';
@@ -231,8 +232,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#4f6d7a', fg: '#e8f6fa', label: '...d6', sub: 'Pirc', piece: 'bishop', pieceColor: 'black' },
     description: 'Let White take the center, then attack it from the side. One setup vs 1.e4 and 1.d4.',
-    chapters: outline(['Pirc setup', 'Austrian Attack', 'Modern ...g6 first', '150 Attack']),
-    status: 'draft',
+    chapters: pircModernChapters,
+    status: 'ready',
   },
   // ------------------------------------------------------------------ Gambits & attacks
   {
