@@ -10,7 +10,7 @@ import { getLessonProgress, saveLessonProgress, categoryBucket } from '../store/
 import { trackStudy } from '../store/tracker';
 import { engine, scoreNum } from '../engine/engine';
 import { explainBest } from '../chess/explain';
-import { demoNarration } from '../chess/lessonSteps';
+import { demoNarration, explainNarration } from '../chess/lessonSteps';
 import { material, turnColor, moveToUci } from '../chess/util';
 import { go, type View } from '../router';
 import '../styles/learn.css';
@@ -139,7 +139,10 @@ class LessonPlayer {
       case 'explain': {
         this.board.set(step.fen, { orientation: step.orientation ?? turnColor(step.fen) });
         this.board.annotate(step);
-        this.coach.say(step.text, 'neutral', { fen: step.fen });
+        // long explanations become short bubbles you tap through, one or two sentences at a time
+        const parts = explainNarration(step);
+        if (parts.length > 1) this.coach.narrate(parts, { startFen: step.fen, onExit: this.next });
+        else this.coach.say(step.text, 'neutral', { fen: step.fen });
         this.extra.append(this.nav());
         break;
       }
