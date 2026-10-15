@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { endgamesChapters } from './content/endgames';
 import { middlegameChapters } from './content/middlegame';
 import { tacticsChapters } from './content/tactics';
 import { fundamentalsChapters } from './content/fundamentals';
@@ -364,8 +365,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#6d597a', fg: '#fdf0ff', label: 'K+P', sub: 'Endgames', piece: 'king', pieceColor: 'white' },
     description: 'King and pawn endings, the opposition, basic rook endings and how to mate with a queen or rook.',
-    chapters: outline(['Queen and rook mates', 'King and pawn: the opposition', 'The square rule', 'Rook endings basics']),
-    status: 'draft',
+    chapters: endgamesChapters,
+    status: 'ready',
   },
   {
     id: 'pawn-structures',
