@@ -6,6 +6,8 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { friedLiverChapters } from './content/fried-liver';
+import { kingsGambitChapters } from './content/kings-gambit';
 
 export const COURSES: Course[] = [
   // ------------------------------------------------------------------ White openings
@@ -260,8 +262,8 @@ export const COURSES: Course[] = [
     level: 'advanced',
     cover: { bg: '#9b1d20', fg: '#ffd8a8', label: '2.f4', sub: 'King\'s Gambit', piece: 'king', pieceColor: 'white' },
     description: 'Open the f-file and go for the king. Sharp, fun and full of traps on both sides.',
-    chapters: outline(['Accepted: 2...exf4', 'Declined: 2...Bc5', 'Falkbeer 2...d5', 'Attacking f7']),
-    status: 'draft',
+    chapters: kingsGambitChapters,
+    status: 'ready',
   },
   {
     id: 'fried-liver',
@@ -272,8 +274,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#b23a48', fg: '#fff0f3', label: 'Ng5', sub: 'Fried Liver', piece: 'knight', pieceColor: 'white' },
     description: 'Jump 4.Ng5 at f7 and punish natural mistakes. Learn the main defenses too.',
-    chapters: outline(['4.Ng5 d5 5.exd5', 'The Fried Liver sacrifice', 'Traxler counterattack', 'Polerio 5...Na5']),
-    status: 'draft',
+    chapters: friedLiverChapters,
+    status: 'ready',
   },
   {
     id: 'stafford',
