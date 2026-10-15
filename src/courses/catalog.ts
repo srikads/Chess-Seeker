@@ -15,6 +15,15 @@ import { ruyLopezChapters } from './content/ruy-lopez';
 import { queensGambitChapters } from './content/queens-gambit';
 import { londonChapters } from './content/london';
 import { viennaChapters } from './content/vienna';
+import { pircModernChapters } from './content/pirc-modern';
+import { dutchChapters } from './content/dutch';
+import { kingsIndianChapters } from './content/kings-indian';
+import { slavChapters } from './content/slav';
+import { qgdChapters } from './content/qgd';
+import { blackE5Chapters } from './content/black-e5';
+import { acceleratedDragonChapters } from './content/accelerated-dragon';
+import { frenchChapters } from './content/french';
+import { scandinavianChapters } from './content/scandinavian';
 
 export const COURSES: Course[] = [
   // ------------------------------------------------------------------ White openings
@@ -136,8 +145,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#2b4c8c', fg: '#ffffff', label: '...d5', sub: 'Scandinavian', piece: 'queen', pieceColor: 'black' },
     description: 'Answer 1.e4 with 1...d5 and choose your positions from move one. Few lines, clear plans.',
-    chapters: outline(['2...Qxd5 main lines', '3...Qa5 setup', '2...Nf6 gambit ideas', 'Traps for White']),
-    status: 'draft',
+    chapters: scandinavianChapters,
+    status: 'ready',
   },
   {
     id: 'french',
@@ -148,8 +157,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#2c5d8f', fg: '#fef6e4', label: '...e6', sub: 'French', piece: 'pawn', pieceColor: 'black' },
     description: 'Build a strong pawn chain and attack White\'s center with ...c5 and ...f6.',
-    chapters: outline(['Advance 3.e5', 'Exchange 3.exd5', 'Tarrasch 3.Nd2', 'Winawer ideas 3.Nc3']),
-    status: 'draft',
+    chapters: frenchChapters,
+    status: 'ready',
   },
   {
     id: 'accelerated-dragon',
@@ -160,8 +169,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#15634a', fg: '#e6ffef', label: '...g6', sub: 'Dragon', piece: 'bishop', pieceColor: 'black' },
     description: 'Fianchetto your bishop on the long diagonal and fight for d5. Active Sicilian play made simple.',
-    chapters: outline(['Main line with ...g6', 'Maroczy Bind', 'Alapin 2.c3', 'Tactics on the long diagonal']),
-    status: 'draft',
+    chapters: acceleratedDragonChapters,
+    status: 'ready',
   },
   {
     id: 'black-e5',
@@ -172,8 +181,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#5c4033', fg: '#ffe7c7', label: '...e5', sub: 'Open games', piece: 'knight', pieceColor: 'black' },
     description: 'Classical answers to 1.e4: the Two Knights and Giuoco Piano from Black\'s side, plus how to handle early attacks.',
-    chapters: outline(['Italian: 3...Bc5', 'Two Knights 3...Nf6', 'Facing 4.Ng5', 'Scotch and others']),
-    status: 'draft',
+    chapters: blackE5Chapters,
+    status: 'ready',
   },
   {
     id: 'qgd',
@@ -184,8 +193,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#4a4e69', fg: '#f2e9e4', label: 'd5 e6', sub: 'QGD', piece: 'king', pieceColor: 'black' },
     description: 'Hold the center with ...d5 and ...e6, develop and castle. A solid setup trusted by world champions.',
-    chapters: outline(['Main setup', 'Exchange Variation', 'vs the London', 'Freeing moves ...c5 and ...e5']),
-    status: 'draft',
+    chapters: qgdChapters,
+    status: 'ready',
   },
   {
     id: 'slav',
@@ -196,8 +205,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#3a6ea5', fg: '#fffbe6', label: 'c6 d5', sub: 'Slav', piece: 'pawn', pieceColor: 'black' },
     description: 'Like the Caro-Kann, but against 1.d4. Keep the center and get your light bishop out.',
-    chapters: outline(['Main line ...Bf5', 'Exchange Slav', 'vs 3.Nc3 and 4.e3', 'Typical plans']),
-    status: 'draft',
+    chapters: slavChapters,
+    status: 'ready',
   },
   {
     id: 'kings-indian',
@@ -208,8 +217,8 @@ export const COURSES: Course[] = [
     level: 'advanced',
     cover: { bg: '#7a2e5c', fg: '#ffe3f1', label: 'g6 Bg7', sub: 'King\'s Indian', piece: 'king', pieceColor: 'black' },
     description: 'Fianchetto, castle, then hit back with ...e5 or ...c5. Rich attacking chances for Black.',
-    chapters: outline(['Setup and ideas', 'Classical main line', 'Sämisch f3', 'Kingside pawn storm']),
-    status: 'draft',
+    chapters: kingsIndianChapters,
+    status: 'ready',
   },
   {
     id: 'dutch',
@@ -220,8 +229,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#d17a22', fg: '#2b1600', label: '...f5', sub: 'Dutch', piece: 'rook', pieceColor: 'black' },
     description: 'An unbalanced reply to 1.d4. Grab e4 and aim your pieces at White\'s king.',
-    chapters: outline(['Stonewall setup', 'Leningrad ideas', 'Early Bg5 and h4', 'Staunton Gambit']),
-    status: 'draft',
+    chapters: dutchChapters,
+    status: 'ready',
   },
   {
     id: 'pirc-modern',
@@ -232,8 +241,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#4f6d7a', fg: '#e8f6fa', label: '...d6', sub: 'Pirc', piece: 'bishop', pieceColor: 'black' },
     description: 'Let White take the center, then attack it from the side. One setup vs 1.e4 and 1.d4.',
-    chapters: outline(['Pirc setup', 'Austrian Attack', 'Modern ...g6 first', '150 Attack']),
-    status: 'draft',
+    chapters: pircModernChapters,
+    status: 'ready',
   },
   // ------------------------------------------------------------------ Gambits & attacks
   {
