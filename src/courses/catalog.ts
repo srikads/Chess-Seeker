@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { slavChapters } from './content/slav';
 import { qgdChapters } from './content/qgd';
 import { blackE5Chapters } from './content/black-e5';
 import { acceleratedDragonChapters } from './content/accelerated-dragon';
@@ -192,8 +193,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#3a6ea5', fg: '#fffbe6', label: 'c6 d5', sub: 'Slav', piece: 'pawn', pieceColor: 'black' },
     description: 'Like the Caro-Kann, but against 1.d4. Keep the center and get your light bishop out.',
-    chapters: outline(['Main line ...Bf5', 'Exchange Slav', 'vs 3.Nc3 and 4.e3', 'Typical plans']),
-    status: 'draft',
+    chapters: slavChapters,
+    status: 'ready',
   },
   {
     id: 'kings-indian',
