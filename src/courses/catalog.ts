@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { blackE5Chapters } from './content/black-e5';
 import { acceleratedDragonChapters } from './content/accelerated-dragon';
 import { frenchChapters } from './content/french';
 import { scandinavianChapters } from './content/scandinavian';
@@ -166,8 +167,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#5c4033', fg: '#ffe7c7', label: '...e5', sub: 'Open games', piece: 'knight', pieceColor: 'black' },
     description: 'Classical answers to 1.e4: the Two Knights and Giuoco Piano from Black\'s side, plus how to handle early attacks.',
-    chapters: outline(['Italian: 3...Bc5', 'Two Knights 3...Nf6', 'Facing 4.Ng5', 'Scotch and others']),
-    status: 'draft',
+    chapters: blackE5Chapters,
+    status: 'ready',
   },
   {
     id: 'qgd',
