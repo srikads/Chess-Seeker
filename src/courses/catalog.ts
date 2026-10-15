@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { staffordChapters } from './content/stafford';
 import { friedLiverChapters } from './content/fried-liver';
 import { kingsGambitChapters } from './content/kings-gambit';
 
@@ -286,8 +287,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#38304f', fg: '#ffcf56', label: '...Nc6?!', sub: 'Stafford', piece: 'queen', pieceColor: 'black' },
     description: 'The Stafford Gambit is full of tricks. See every trap, then learn the calm moves that refute it.',
-    chapters: outline(['The traps', 'Safe refutation', 'Converting the extra piece']),
-    status: 'draft',
+    chapters: staffordChapters,
+    status: 'ready',
   },
   {
     id: 'albin-englund',
