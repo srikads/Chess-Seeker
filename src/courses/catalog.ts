@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { middlegameChapters } from './content/middlegame';
 import { tacticsChapters } from './content/tactics';
 import { fundamentalsChapters } from './content/fundamentals';
 import { albinEnglundChapters } from './content/albin-englund';
@@ -351,8 +352,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#2d6a8e', fg: '#e6f4ff', label: 'Plan', sub: 'Middlegame', piece: 'rook', pieceColor: 'white' },
     description: 'Find a plan: improve your worst piece, open files for rooks and attack where you are stronger.',
-    chapters: outline(['Improve your worst piece', 'Open files and outposts', 'Attacking the castled king', 'Trading pieces']),
-    status: 'draft',
+    chapters: middlegameChapters,
+    status: 'ready',
   },
   {
     id: 'endgames',
