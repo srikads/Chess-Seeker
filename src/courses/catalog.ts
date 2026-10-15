@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { dutchChapters } from './content/dutch';
 import { kingsIndianChapters } from './content/kings-indian';
 import { slavChapters } from './content/slav';
 import { qgdChapters } from './content/qgd';
@@ -218,8 +219,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#d17a22', fg: '#2b1600', label: '...f5', sub: 'Dutch', piece: 'rook', pieceColor: 'black' },
     description: 'An unbalanced reply to 1.d4. Grab e4 and aim your pieces at White\'s king.',
-    chapters: outline(['Stonewall setup', 'Leningrad ideas', 'Early Bg5 and h4', 'Staunton Gambit']),
-    status: 'draft',
+    chapters: dutchChapters,
+    status: 'ready',
   },
   {
     id: 'pirc-modern',
