@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { tacticsChapters } from './content/tactics';
 import { fundamentalsChapters } from './content/fundamentals';
 import { albinEnglundChapters } from './content/albin-englund';
 import { staffordChapters } from './content/stafford';
@@ -338,8 +339,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#e8a33d', fg: '#2d1a00', label: 'Fork!', sub: 'Tactics', piece: 'knight', pieceColor: 'black' },
     description: 'The tricks that win material: forks, pins, skewers, discovered attacks and removing the defender.',
-    chapters: outline(['Forks', 'Pins', 'Skewers', 'Discovered attacks', 'Removing the defender']),
-    status: 'draft',
+    chapters: tacticsChapters,
+    status: 'ready',
   },
   {
     id: 'middlegame',
