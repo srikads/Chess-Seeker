@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { danishChapters } from './content/danish';
 import { jobavaChapters } from './content/jobava';
 import { englishChapters } from './content/english';
 import { scotchChapters } from './content/scotch';
@@ -243,8 +244,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#c0392b', fg: '#ffffff', label: '3.c3!', sub: 'Danish', piece: 'bishop', pieceColor: 'white' },
     description: 'Sacrifice pawns for fast development and two raking bishops. Beginners on Black often collapse.',
-    chapters: outline(['Accepted: the full gambit', 'Declined with ...d5', 'Traps and mates']),
-    status: 'draft',
+    chapters: danishChapters,
+    status: 'ready',
   },
   {
     id: 'smith-morra',
