@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { scotchChapters } from './content/scotch';
 import { ruyLopezChapters } from './content/ruy-lopez';
 import { queensGambitChapters } from './content/queens-gambit';
 import { londonChapters } from './content/london';
@@ -82,8 +83,8 @@ export const COURSES: Course[] = [
     level: 'beginner',
     cover: { bg: '#1d6f73', fg: '#eafcff', label: '3.d4', sub: 'Scotch', piece: 'pawn', pieceColor: 'white' },
     description: 'Strike with 3.d4 and get open lines for your pieces. Clear plans and fewer quiet positions.',
-    chapters: outline(['3.d4 exd4 4.Nxd4', 'Classical 4...Bc5', 'Schmidt 4...Nf6', 'Scotch Gambit ideas']),
-    status: 'draft',
+    chapters: scotchChapters,
+    status: 'ready',
   },
   {
     id: 'english',
