@@ -6,6 +6,7 @@ import { outline } from './helpers';
 import { italianChapters } from './content/italian';
 import { caroKannChapters } from './content/caro-kann';
 import { checkmateChapters } from './content/checkmates';
+import { smithMorraChapters } from './content/smith-morra';
 import { danishChapters } from './content/danish';
 import { jobavaChapters } from './content/jobava';
 import { englishChapters } from './content/english';
@@ -256,8 +257,8 @@ export const COURSES: Course[] = [
     level: 'intermediate',
     cover: { bg: '#e07a1f', fg: '#2a1300', label: 'd4 c3', sub: 'Smith-Morra', piece: 'knight', pieceColor: 'white' },
     description: 'Give a pawn against 1...c5 for open lines and quick development. A great anti-Sicilian weapon.',
-    chapters: outline(['Accepted main line', 'Declined lines', 'Traps on the c-file', 'Attacking plans']),
-    status: 'draft',
+    chapters: smithMorraChapters,
+    status: 'ready',
   },
   {
     id: 'kings-gambit',

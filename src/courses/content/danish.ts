@@ -286,7 +286,7 @@ export const danishChapters: Chapter[] = [
           M('Nxc3'),
           M('Bxc3'),
           M('Bxc3', 'Black is three pawns up, but g7 has no defender left.', { arrows: ['c3g7:red'] }),
-          T('O-O', 'Black castles right into our attack. The king has no pawn shield help on g7.'),
+          T('O-O', 'Black castles right into our attack. Nothing guards g7 anymore.'),
           M('Qg4', 'Threat: Qxg7 checkmate!', { arrows: ['g4g7:red', 'c3g7:red'] }),
           M('g6'),
           M('Qd4', 'Threat: Qh8 checkmate. The long diagonal is deadly.', { arrows: ['d4h8:red'] }),
